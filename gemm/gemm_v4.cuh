@@ -83,11 +83,11 @@ __global__ void gemm_reg_kernel_v3(float *dA, float *dB, float *dC, int M, int K
 
     #pragma unroll
     for (int i = 0; i < TM; i++) {
-        int store_gmem_m = blockIdx_y * blockDim_y + threadIdx.y * TM + i;
+        int store_gmem_m = blockIdx_y * BM + threadIdx.y * TM + i;
 
         #pragma unroll
         for (int j = 0; j < TN; j += 4) {
-            int store_gmem_n = blockIdx_x * blockDim_x + threadIdx.x * TN + j;
+            int store_gmem_n = blockIdx_x * BN + threadIdx.x * TN + j;
             FLOAT4(dC[OFFSET(store_gmem_m, store_gmem_n, N)]) = FLOAT4(regC[i][j]);
 
         }
