@@ -1,6 +1,7 @@
 /* 
-该版本采用FLOAT4存取方法,因此smem元素必须为128x8个，且行列都必须为4的整数倍
-A、B的shape同前几个版本一致
+该版本采用对于smemB采用FLOAT4存取方法
+优化smem的store方式，按照KxM也就是转置形式存储，存在2-bankconflict
+同gemm_v4.cuh，smem大小必须固定
 */
 #include <iostream>
 #include <iomanip>
@@ -13,12 +14,13 @@ A、B的shape同前几个版本一致
 #include "../utils/utils.cuh"
 
 template <int BM, int BK, int BN, int TM, int TN>
-__global__ void gemm_reg_kernel_v3(float *dA, float *dB, float *dC, int M, int K, int N) {
-    __shared__ float shared_A[BM][BK];
+__global__ void gemm_reg_kernel_v4(float *dA, float *dB, float *dC, int M, int K, int N) {
+    __shared__ float shared_A[BK][BM];
     __shared__ float shared_B[BK][BN];
     float regA[TM];
     float regB[TN];
     float regC[TM][TN];
+    float load_a_r[4];
 
     int blockDim_x = blockDim.x;
     int blockDim_y = blockDim.y;
@@ -28,12 +30,12 @@ __global__ void gemm_reg_kernel_v3(float *dA, float *dB, float *dC, int M, int K
     int tid = threadIdx.y * blockDim_x + threadIdx.x;
     constexpr int BLOCK_THREADS = (BM / TM) * (BN / TN);
 
-    #pragma unroll
-    for (int j = 0; j < TM; j++) {
-        for (int k = 0; k < TN; k++) {
-            regC[j][k] = 0.0f;
-        }
-    }
+    // #pragma unroll
+    // for (int j = 0; j < TM; j++) {
+    //     for (int k = 0; k < TN; k++) {
+    //         regC[j][k] = 0.0f;
+    //     }
+    // }
 
     int load_smema_k = (tid & 1) << 2; //  y = (tid == 0 ? 0 : 4)
     int load_smema_m = tid / 2;
@@ -46,8 +48,15 @@ __global__ void gemm_reg_kernel_v3(float *dA, float *dB, float *dC, int M, int K
 
     for (int k = 0; k < K; k += BK) {
         int load_gmema_k = k + load_smema_k;
-        FLOAT4(shared_A[load_smema_m][load_smema_k]) = FLOAT4(dA[OFFSET(load_gmem_m, load_gmema_k, K)]);
+        int start_gmema = OFFSET(load_gmem_m, load_gmema_k, K);
 
+        FLOAT4(load_a_r[0]) = FLOAT4(dA[start_gmema]);
+
+        shared_A[load_smema_k][load_smema_m] = load_a_r[0];
+        shared_A[load_smema_k + 1][load_smema_m] = load_a_r[1];
+        shared_A[load_smema_k + 2][load_smema_m] = load_a_r[2];
+        shared_A[load_smema_k + 3][load_smema_m] = load_a_r[3];
+        
         int load_gmemb_k = k + load_smemb_k;
         FLOAT4(shared_B[load_smemb_k][load_smemb_n]) = FLOAT4(dB[OFFSET(load_gmemb_k, load_gmem_n, N)]);
 
@@ -61,7 +70,7 @@ __global__ void gemm_reg_kernel_v3(float *dA, float *dB, float *dC, int M, int K
             // store RegA
             #pragma unroll
             for (int j = 0; j < TM; j++) {
-                regA[j] = shared_A[row + j][i];
+                regA[j] = shared_A[i][row + j];
             }
 
             // store RegA
@@ -95,7 +104,7 @@ __global__ void gemm_reg_kernel_v3(float *dA, float *dB, float *dC, int M, int K
     }
 }
 
-void gemm_reg_v3(float *hA, float *hB, float *hC, int M, int K, int N) {
+void gemm_reg_v4(float *hA, float *hB, float *hC, int M, int K, int N) {
     float *dA, *dB, *dC;
 
     nvtxRangePush("gemm_reg_start_up_malloc");
@@ -123,13 +132,13 @@ void gemm_reg_v3(float *hA, float *hB, float *hC, int M, int K, int N) {
     dim3 block(BN / TN, BM / TM, 1);
     dim3 grid(num_BLOCK_x, num_BLOCK_y, 1);
 
-    nvtxRangePush("gemm_reg_kernel_v3");
-    gemm_reg_kernel_v3<BM, BK, BN, TM, TN><<<grid, block>>>(dA, dB, dC, M, K, N);
+    nvtxRangePush("gemm_reg_kernel_v4");
+    gemm_reg_kernel_v4<BM, BK, BN, TM, TN><<<grid, block>>>(dA, dB, dC, M, K, N);
     cudaDeviceSynchronize();
 
     {
-        CudaTimer timer("gemm_reg_v3");
-        gemm_reg_kernel_v3<BM, BK, BN, TM, TN><<<grid, block>>>(dA, dB, dC, M, K, N);
+        CudaTimer timer("gemm_reg_v4");
+        gemm_reg_kernel_v4<BM, BK, BN, TM, TN><<<grid, block>>>(dA, dB, dC, M, K, N);
         nvtxRangePop();
     }
 
