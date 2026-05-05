@@ -34,6 +34,8 @@ void print1() {
     gemm_reg_v1(hA, hB, hC_gpu, M, K, N);
     gemm_reg_v2(hA, hB, hC_gpu, M, K, N);
     gemm_reg_v3(hA, hB, hC_gpu, M, K, N);
+    gemm_reg_v4(hA, hB, hC_gpu, M, K, N);
+    gemm_reg_v5(hA, hB, hC_gpu, M, K, N);
 
     for (int i = 0; i < M * N; i++) {
         if (fabs(hC_cpu[i] - hC_gpu[i]) > 1e-3f){

@@ -1,9 +1,8 @@
 /* 
-该版本采用对于smemB采用FLOAT4存取方法,同gemm_v4.cuh，smem大小必须固定
-优化smemA的store方式，按照KxM也就是转置形式顺序存储，存在2-bankconflict，且一次指令可以取更多数据
-store smemB存在2-bank conflict
-优化smem的load方式，但依旧使用FLOAT4取，每个线程计算4x4结果矩阵，对两个smem的取值依然存在2-bankconflict
-
+该版本采用对于smemB采用"FLOAT4存"方式,但是抛弃"FLOAT4取"方式
+同v5:smemA的store方式，按照KxM也就是转置形式顺序存储，存在2-bankconflict，且一次指令可以取更多数据.
+store smemB存在2-bank conflict.
+在v5基础上优化smem的load方式，每个线程计算2x2结果矩阵，抛弃了FLOAT4，但消除了bankconflict
 */
 #include <iostream>
 #include <iomanip>
@@ -63,6 +62,22 @@ __global__ void gemm_reg_kernel_v4(float *dA, float *dB, float *dC, int M, int K
         FLOAT4(shared_B[load_smemb_k][load_smemb_n]) = FLOAT4(dB[OFFSET(load_gmemb_k, load_gmem_n, N)]);
 
         __syncthreads();
+
+        for (int k = 0; k < BK; k++) {
+            for (int i = 0; i < BM / (2 * blockDim_y); i++) {
+                int str_reg_m = 2 * i;
+                for (int j = 0; j < BN / (2 * blockDim_x); j++) {
+                    int str_reg_n = 2 * j;
+                    
+                    regA[str_reg_m] = shared_A[k][i * 2 * blockDim_y + threadIdx.y * 2];
+                    regA[str_reg_m + 1] = shared_A[k][i * 2 * blockDim_y + threadIdx.y * 2 + 1];
+                    regB[str_reg_n] = shared_B[k][i * 2 * blockDim_x + threadIdx.x * 2];
+                    regB[str_reg_n] = shared_B[k][i * 2 * blockDim_x + threadIdx.x * 2 + 1];
+                    
+                }
+            }
+        }
+
 
         #pragma unroll
         for (int i = 0; i < BK; i++) {

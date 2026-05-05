@@ -38,6 +38,7 @@ set(GEMM_HEADERS
     ${CMAKE_SOURCE_DIR}/gemm_v2.cuh
     ${CMAKE_SOURCE_DIR}/gemm_v3.cuh
     ${CMAKE_SOURCE_DIR}/gemm_v4.cuh
+    ${CMAKE_SOURCE_DIR}/gemm_v5.cuh
     ${CMAKE_SOURCE_DIR}/../utils/utils.cuh
 )
 
