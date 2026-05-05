@@ -1,0 +1,3 @@
+/gz-data/cuda_test/build/CMakeFiles/cuda_add.dir
+/gz-data/cuda_test/build/CMakeFiles/edit_cache.dir
+/gz-data/cuda_test/build/CMakeFiles/rebuild_cache.dir
