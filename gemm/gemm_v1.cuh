@@ -78,7 +78,7 @@ void gemm_sharedmemory(float *hA, float *hB, float *hC, int M, int K, int N) {
     cudaDeviceSynchronize();
 
     {
-        CudaTimer("gemm_shared_memory");
+        CudaTimer Timer("gemm_shared_memory");
         gemm_shared_memory_kernel<32><<<grid, block>>>(dA, dB, dC, M, K, N);
         nvtxRangePop();
     }

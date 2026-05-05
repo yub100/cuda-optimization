@@ -5,6 +5,7 @@
 #include "./gemm_v2.cuh"
 #include "./gemm_v3.cuh"
 #include "./gemm_v4.cuh"
+#include "./gemm_v5.cuh"
 #include "../utils/utils.cuh"
 
 void print1() {

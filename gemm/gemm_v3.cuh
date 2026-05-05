@@ -140,7 +140,7 @@ void gemm_reg_v2(float *hA, float *hB, float *hC, int M, int K, int N) {
     gemm_reg_kernel_v2<BM, BK, BN, TM, TN><<<grid, block>>>(dA, dB, dC, M, K, N);
     cudaDeviceSynchronize();
     {
-        CudaTimer("gemm_reg_v2");
+        CudaTimer Timer("gemm_reg_v2");
         gemm_reg_kernel_v2<BM, BK, BN, TM, TN><<<grid, block>>>(dA, dB, dC, M, K, N);
         nvtxRangePop();
     }
