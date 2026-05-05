@@ -32,12 +32,12 @@ __global__ void gemm_reg_kernel_v4(float *dA, float *dB, float *dC, int M, int K
     int tid = threadIdx.y * blockDim_x + threadIdx.x;
     constexpr int BLOCK_THREADS = (BM / TM) * (BN / TN);
 
-    // #pragma unroll
-    // for (int j = 0; j < TM; j++) {
-    //     for (int k = 0; k < TN; k++) {
-    //         regC[j][k] = 0.0f;
-    //     }
-    // }
+    #pragma unroll
+    for (int j = 0; j < TM; j++) {
+        for (int k = 0; k < TN; k++) {
+            regC[j][k] = 0.0f;
+        }
+    }
 
     int load_smema_k = (tid & 1) << 2; //  y = (tid == 0 ? 0 : 4)
     int load_smema_m = tid / 2;
@@ -86,15 +86,18 @@ __global__ void gemm_reg_kernel_v4(float *dA, float *dB, float *dC, int M, int K
     }
 
     #pragma unroll
-    for (int i = 0; i < TM; i++) {
-        int store_gmem_m = blockIdx_y * BM + threadIdx.y * TM + i;
-
-        #pragma unroll
-        for (int j = 0; j < TN; j += 4) {
-            int store_gmem_n = blockIdx_x * BN + threadIdx.x * TN + j;
-            FLOAT4(dC[OFFSET(store_gmem_m, store_gmem_n, N)]) = FLOAT4(regC[i][j]);
-
-        }
+    for (int i = 0; i < TM / 2; i++) {
+        int store_gmem_m = blockIdx_y * BM + threadIdx.y * TM / 2 + i;
+        int store_gmem_n = blockIdx_x * BN + threadIdx.x * TN / 2;
+        FLOAT4(dC[OFFSET(store_gmem_m, store_gmem_n, N)]) = FLOAT4(regC[i][0]);
+        FLOAT4(dC[OFFSET(store_gmem_m, store_gmem_n + BN / 2, N)]) = FLOAT4(regC[i][4]);
+    }
+    #pragma unroll
+    for (int i = 0; i < TM / 2; i++) {
+        int store_gmem_m = blockIdx_y * BM + BM / 2 + threadIdx.y * TM / 2 + i;
+        int store_gmem_n = blockIdx_x * BN + threadIdx.x * TN / 2;
+        FLOAT4(dC[OFFSET(store_gmem_m, store_gmem_n, N)]) = FLOAT4(regC[i + TM / 2][0]);
+        FLOAT4(dC[OFFSET(store_gmem_m, store_gmem_n + BN / 2, N)]) = FLOAT4(regC[i + TM / 2][4]);
     }
 }
 
