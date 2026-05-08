@@ -326,4 +326,5 @@ CMakeFiles/gemm_bench.dir/main.cu.o : /gz-data/cuda-optimization/gemm/main.cu \
     /gz-data/cuda-optimization/gemm/./gemm_v3.cuh \
     /gz-data/cuda-optimization/gemm/./gemm_v3_p.cuh \
     /gz-data/cuda-optimization/gemm/./gemm_v4.cuh \
-    /gz-data/cuda-optimization/gemm/./gemm_v5.cuh
+    /gz-data/cuda-optimization/gemm/./gemm_v5.cuh \
+    /gz-data/cuda-optimization/gemm/./gemm_v5_p.cuh

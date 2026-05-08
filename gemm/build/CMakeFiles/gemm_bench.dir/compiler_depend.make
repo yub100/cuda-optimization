@@ -329,7 +329,8 @@ CMakeFiles/gemm_bench.dir/main.cu.o: ../main.cu \
   ../gemm_v3.cuh \
   ../gemm_v3_p.cuh \
   ../gemm_v4.cuh \
-  ../gemm_v5.cuh
+  ../gemm_v5.cuh \
+  ../gemm_v5_p.cuh
 
 
 ../gemm_v4.cuh:
@@ -645,6 +646,8 @@ CMakeFiles/gemm_bench.dir/main.cu.o: ../main.cu \
 /usr/include/x86_64-linux-gnu/bits/fp-logb.h:
 
 /usr/include/c++/11/bits/ios_base.h:
+
+../gemm_v5_p.cuh:
 
 /usr/include/c++/11/locale:
 
