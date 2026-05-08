@@ -24,8 +24,8 @@ __global__ void gemm_reg_kernel_v2(float *dA, float *dB, float *dC, int M, int K
     float regB[TN];
     float regC[TM][TN];
 
-    int blockDim_x = blockDim.x;
-    int blockDim_y = blockDim.y;
+    constexpr int blockDim_x = BN / TN;
+    constexpr int blockDim_y = BM / TM;
     int blockIdx_x = blockIdx.x;
     int blockIdx_y = blockIdx.y;
 

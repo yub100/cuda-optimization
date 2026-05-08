@@ -1,5 +1,6 @@
 /* 
 该版本基于v5,适配了不同BK
+结果显示BK越大，性能越好
 */
 #include <iostream>
 #include <iomanip>
@@ -20,8 +21,8 @@ __global__ void gemm_reg_kernel_v5_p(float *dA, float *dB, float *dC, int M, int
     float regC[TM][TN];
     float load_a_r[4];
 
-    int blockDim_x = blockDim.x;
-    int blockDim_y = blockDim.y;
+    constexpr int blockDim_x = BN / TN;
+    constexpr int blockDim_y = BM / TM;
     int blockIdx_x = blockIdx.x;
     int blockIdx_y = blockIdx.y;
 
@@ -124,7 +125,7 @@ void gemm_reg_v5_p(float *hA, float *hB, float *hC, int M, int K, int N) {
     // one Block calculate BM x BN of C.
     constexpr int BM = 128;
     constexpr int BN = 128;
-    constexpr int BK = 8;
+    constexpr int BK = 32;
     
     constexpr int TM = 8;
     constexpr int TN = 8;

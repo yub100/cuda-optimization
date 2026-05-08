@@ -23,8 +23,8 @@ __global__ void gemm_reg_kernel_v3(float *dA, float *dB, float *dC, int M, int K
     float regB[TN];
     float regC[TM][TN];
 
-    int blockDim_x = blockDim.x;
-    int blockDim_y = blockDim.y;
+    constexpr int blockDim_x = BN / TN;
+    constexpr int blockDim_y = BM / TM;
     int blockIdx_x = blockIdx.x;
     int blockIdx_y = blockIdx.y;
 
@@ -125,7 +125,7 @@ void gemm_reg_v3(float *hA, float *hB, float *hC, int M, int K, int N) {
     // one Block calculate BM x BN of C.
     constexpr int BM = 128;
     constexpr int BN = 128;
-    constexpr int BK = 8;
+    constexpr int BK = 32;
     
     constexpr int TM = 8;
     constexpr int TN = 8;

@@ -4,7 +4,6 @@
 #include "./gemm_v1.cuh"
 #include "./gemm_v2.cuh"
 #include "./gemm_v3.cuh"
-#include "./gemm_v3_p.cuh"
 #include "./gemm_v4.cuh"
 #include "./gemm_v5.cuh"
 #include "./gemm_v5_p.cuh"
@@ -38,7 +37,7 @@ void print1() {
     // gemm_reg_v2(hA, hB, hC_gpu, M, K, N);
     // gemm_reg_v3(hA, hB, hC_gpu, M, K, N);
     // gemm_reg_v4(hA, hB, hC_gpu, M, K, N);
-    gemm_reg_v3_p(hA, hB, hC_gpu, M, K, N);
+    gemm_reg_v3(hA, hB, hC_gpu, M, K, N);
     gemm_reg_v5(hA, hB, hC_gpu, M, K, N);
     gemm_reg_v5_p(hA, hB, hC_gpu, M, K, N);
 
