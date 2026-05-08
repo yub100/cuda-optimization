@@ -16,7 +16,7 @@ dB.shape = K x N;
 
 // dA.shape = [M, K], dB.shape = [K, N]
 template <int BLOCK_DIM>
-__global__ void gemm_shared_memory_kernel(float *dA, float *dB, float *dC, int M, int K, int N) {
+__global__ void gemm_shared_memory_kernel_v1(float *dA, float *dB, float *dC, int M, int K, int N) {
     __shared__ float shared_a[BLOCK_DIM][BLOCK_DIM];
     __shared__ float shared_b[BLOCK_DIM][BLOCK_DIM];
 
@@ -52,7 +52,7 @@ __global__ void gemm_shared_memory_kernel(float *dA, float *dB, float *dC, int M
 }
 
 
-void gemm_sharedmemory(float *hA, float *hB, float *hC, int M, int K, int N) {
+void gemm_sharedmemory_v1(float *hA, float *hB, float *hC, int M, int K, int N) {
     float *dA, *dB, *dC;
 
     nvtxRangePush("gemm_sharedm_start_up_malloc");
@@ -72,14 +72,14 @@ void gemm_sharedmemory(float *hA, float *hB, float *hC, int M, int K, int N) {
     dim3 block(BLOCK_DIM_x, BLOCK_DIM_y, 1);
     dim3 grid(num_BLOCK_x, num_BLOCK_y, 1);
 
-    nvtxRangePush("gemm_shared_memory");
+    nvtxRangePush("gemm_shared_memory_v1");
     // warm up
-    gemm_shared_memory_kernel<32><<<grid, block>>>(dA, dB, dC, M, K, N);
+    gemm_shared_memory_kernel_v1<32><<<grid, block>>>(dA, dB, dC, M, K, N);
     cudaDeviceSynchronize();
 
     {
         CudaTimer Timer("gemm_shared_memory");
-        gemm_shared_memory_kernel<32><<<grid, block>>>(dA, dB, dC, M, K, N);
+        gemm_shared_memory_kernel_v1<32><<<grid, block>>>(dA, dB, dC, M, K, N);
         nvtxRangePop();
     }
     cudaMemcpy(hC, dC, M * N * sizeof(float), cudaMemcpyDeviceToHost);

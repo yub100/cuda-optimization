@@ -1,5 +1,5 @@
 /* 
-该版本相较于gemm_reg_kernel_v1
+该版本相较于gemm_reg_kernel_v2
 采用线性存储方法消除store shared memory B时的2路bank conflict
 */
 #pragma once
@@ -16,7 +16,7 @@
 
 
 template <int BM, int BK, int BN, int TM, int TN>
-__global__ void gemm_reg_kernel_v2(float *dA, float *dB, float *dC, int M, int K, int N) {
+__global__ void gemm_reg_kernel_v3(float *dA, float *dB, float *dC, int M, int K, int N) {
     __shared__ float shared_A[BM][BK];
     __shared__ float shared_B[BK][BN];
     float regA[TM];
@@ -108,7 +108,7 @@ __global__ void gemm_reg_kernel_v2(float *dA, float *dB, float *dC, int M, int K
     }
 }
 
-void gemm_reg_v2(float *hA, float *hB, float *hC, int M, int K, int N) {
+void gemm_reg_v3(float *hA, float *hB, float *hC, int M, int K, int N) {
     float *dA, *dB, *dC;
 
     nvtxRangePush("gemm_reg_start_up_malloc");
@@ -136,12 +136,12 @@ void gemm_reg_v2(float *hA, float *hB, float *hC, int M, int K, int N) {
     dim3 block(BN / TN, BM / TM, 1);
     dim3 grid(num_BLOCK_x, num_BLOCK_y, 1);
 
-    nvtxRangePush("gemm_reg_kernel_v2");
-    gemm_reg_kernel_v2<BM, BK, BN, TM, TN><<<grid, block>>>(dA, dB, dC, M, K, N);
+    nvtxRangePush("gemm_reg_kernel_v3");
+    gemm_reg_kernel_v3<BM, BK, BN, TM, TN><<<grid, block>>>(dA, dB, dC, M, K, N);
     cudaDeviceSynchronize();
     {
-        CudaTimer Timer("gemm_reg_v2");
-        gemm_reg_kernel_v2<BM, BK, BN, TM, TN><<<grid, block>>>(dA, dB, dC, M, K, N);
+        CudaTimer Timer("gemm_reg_v3");
+        gemm_reg_kernel_v3<BM, BK, BN, TM, TN><<<grid, block>>>(dA, dB, dC, M, K, N);
         nvtxRangePop();
     }
 

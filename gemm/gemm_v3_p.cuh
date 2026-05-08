@@ -1,9 +1,5 @@
 /* 
-该版本实现了register gemm，其中
-store shared memory of A无bank conflict
-store shared memory of B存在2路bank conflict
-load shared memory of A存在2路冲突
-load shared memory of B存在4路冲突
+仅修改BK,越大性能越好
 */
 #pragma once
 #include <iostream>
@@ -14,10 +10,12 @@ load shared memory of B存在4路冲突
 #include <cmath>
 #include <chrono>
 #include <nvToolsExt.h>
+
 #include "../utils/utils.cuh"
 
+
 template <int BM, int BK, int BN, int TM, int TN>
-__global__ void gemm_reg_kernel_v2(float *dA, float *dB, float *dC, int M, int K, int N) {
+__global__ void gemm_reg_kernel_v3_p(float *dA, float *dB, float *dC, int M, int K, int N) {
     __shared__ float shared_A[BM][BK];
     __shared__ float shared_B[BK][BN];
     float regA[TM];
@@ -52,20 +50,19 @@ __global__ void gemm_reg_kernel_v2(float *dA, float *dB, float *dC, int M, int K
                 }
             }
         }
-        
-        // store shared_B
-        // 原版本，具有2路bank conflict
-        for (int i = 0; i < BK; i += blockDim_y) {
-            for (int j = 0; j < BN; j += blockDim_x) {
-                int row = k + i + threadIdx.y;
-                int col = blockIdx_x * BN + j + threadIdx.x;
-                if (i + threadIdx.y < BK && j + threadIdx.x < BN) {
-                    if (row < K && col < N) {
-                        shared_B[i + threadIdx.y][j + threadIdx.x] = dB[row * N + col];
-                    } else {
-                        shared_B[i + threadIdx.y][j + threadIdx.x] = 0.0f;
-                    }
-                }
+
+        // 优化版本，解决bank conflict
+        int tid = threadIdx.y * blockDim_x + threadIdx.x;
+        constexpr int BLOCK_THREADS = (BN / TN) * (BM / TM);
+        for (int t = tid ; t < BK * BN; t += BLOCK_THREADS) {
+            int smem_row = t / BN;
+            int smem_col = t % BN;
+            int gmem_row = k + smem_row;
+            int gmem_col = blockIdx_x * BN + smem_col;
+            if (gmem_row < K && gmem_col < N) {
+                shared_B[smem_row][smem_col] = dB[gmem_row * N + gmem_col];
+            } else {
+                shared_B[smem_row][smem_col] = 0.0f;
             }
         }
         __syncthreads();
@@ -75,8 +72,6 @@ __global__ void gemm_reg_kernel_v2(float *dA, float *dB, float *dC, int M, int K
             int row = threadIdx.y * TM;
             int col = threadIdx.x * TN;
 
-            // smemA=128x8;
-            
             // store RegA
             #pragma unroll
             for (int j = 0; j < TM; j++) {
@@ -112,7 +107,7 @@ __global__ void gemm_reg_kernel_v2(float *dA, float *dB, float *dC, int M, int K
     }
 }
 
-void gemm_reg_v2(float *hA, float *hB, float *hC, int M, int K, int N) {
+void gemm_reg_v3_p(float *hA, float *hB, float *hC, int M, int K, int N) {
     float *dA, *dB, *dC;
 
     nvtxRangePush("gemm_reg_start_up_malloc");
@@ -129,7 +124,7 @@ void gemm_reg_v2(float *hA, float *hB, float *hC, int M, int K, int N) {
     // one Block calculate BM x BN of C.
     constexpr int BM = 128;
     constexpr int BN = 128;
-    constexpr int BK = 8;
+    constexpr int BK = 32;
     
     constexpr int TM = 8;
     constexpr int TN = 8;
@@ -140,13 +135,12 @@ void gemm_reg_v2(float *hA, float *hB, float *hC, int M, int K, int N) {
     dim3 block(BN / TN, BM / TM, 1);
     dim3 grid(num_BLOCK_x, num_BLOCK_y, 1);
 
-    nvtxRangePush("gemm_reg_kernel_v2");
-    gemm_reg_kernel_v2<BM, BK, BN, TM, TN><<<grid, block>>>(dA, dB, dC, M, K, N);
+    nvtxRangePush("gemm_reg_kernel_v3_p");
+    gemm_reg_kernel_v3_p<BM, BK, BN, TM, TN><<<grid, block>>>(dA, dB, dC, M, K, N);
     cudaDeviceSynchronize();
-
     {
-        CudaTimer timer("gemm_reg_v2");
-        gemm_reg_kernel_v2<BM, BK, BN, TM, TN><<<grid, block>>>(dA, dB, dC, M, K, N);
+        CudaTimer Timer("gemm_reg_v3_p");
+        gemm_reg_kernel_v3_p<BM, BK, BN, TM, TN><<<grid, block>>>(dA, dB, dC, M, K, N);
         nvtxRangePop();
     }
 

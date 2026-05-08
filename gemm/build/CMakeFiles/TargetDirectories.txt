@@ -1,0 +1,5 @@
+/gz-data/cuda-optimization/gemm/build/CMakeFiles/gemm_bench.dir
+/gz-data/cuda-optimization/gemm/build/CMakeFiles/ncu.dir
+/gz-data/cuda-optimization/gemm/build/CMakeFiles/nsys.dir
+/gz-data/cuda-optimization/gemm/build/CMakeFiles/edit_cache.dir
+/gz-data/cuda-optimization/gemm/build/CMakeFiles/rebuild_cache.dir

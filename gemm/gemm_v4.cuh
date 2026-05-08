@@ -13,7 +13,7 @@ A、B的shape同前几个版本一致
 #include "../utils/utils.cuh"
 
 template <int BM, int BK, int BN, int TM, int TN>
-__global__ void gemm_reg_kernel_v3(float *dA, float *dB, float *dC, int M, int K, int N) {
+__global__ void gemm_reg_kernel_v4(float *dA, float *dB, float *dC, int M, int K, int N) {
     __shared__ float shared_A[BM][BK];
     __shared__ float shared_B[BK][BN];
     float regA[TM];
@@ -95,7 +95,7 @@ __global__ void gemm_reg_kernel_v3(float *dA, float *dB, float *dC, int M, int K
     }
 }
 
-void gemm_reg_v3(float *hA, float *hB, float *hC, int M, int K, int N) {
+void gemm_reg_v4(float *hA, float *hB, float *hC, int M, int K, int N) {
     float *dA, *dB, *dC;
 
     nvtxRangePush("gemm_reg_start_up_malloc");
@@ -123,13 +123,13 @@ void gemm_reg_v3(float *hA, float *hB, float *hC, int M, int K, int N) {
     dim3 block(BN / TN, BM / TM, 1);
     dim3 grid(num_BLOCK_x, num_BLOCK_y, 1);
 
-    nvtxRangePush("gemm_reg_kernel_v3");
-    gemm_reg_kernel_v3<BM, BK, BN, TM, TN><<<grid, block>>>(dA, dB, dC, M, K, N);
+    nvtxRangePush("gemm_reg_kernel_v4");
+    gemm_reg_kernel_v4<BM, BK, BN, TM, TN><<<grid, block>>>(dA, dB, dC, M, K, N);
     cudaDeviceSynchronize();
 
     {
-        CudaTimer timer("gemm_reg_v3");
-        gemm_reg_kernel_v3<BM, BK, BN, TM, TN><<<grid, block>>>(dA, dB, dC, M, K, N);
+        CudaTimer timer("gemm_reg_v4");
+        gemm_reg_kernel_v4<BM, BK, BN, TM, TN><<<grid, block>>>(dA, dB, dC, M, K, N);
         nvtxRangePop();
     }
 
