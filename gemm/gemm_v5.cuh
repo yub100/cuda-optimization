@@ -1,8 +1,10 @@
 /* 
-该版本采用对于smemB采用FLOAT4存取方法,同gemm_v4.cuh，smem大小必须固定
-优化smemA的store方式，按照KxM也就是转置形式顺序存储，存在2-bankconflict，且一次指令可以取更多数据
+该版本基于v4，优化smemA的store方式，按照KxM也就是转置形式顺序存储，存在2-bankconflict，
+但是消除了load smemA过程中存在的bank conflict,
+使用FLOAT4取，每个线程计算4x4结果矩阵，load smem过程中无bankconflict,
+还在此基础上进一步：使每个thread计算4x4大小C tile，这样可以让thread以4个FLOAT为单位挨着访问smem
+smem大小必须固定
 
-优化smem的load方式，但依旧使用FLOAT4取，每个线程计算4x4结果矩阵，load smeme过程中无bankconflict
 
 */
 #include <iostream>

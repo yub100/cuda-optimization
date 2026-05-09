@@ -10,6 +10,7 @@
 #include "./gemm_v5_swizzle.cuh"
 #include "./gemm_v6_1.cuh"
 #include "./gemm_v6_2.cuh"
+#include "./gemm_v6_3.cuh"
 #include "../utils/utils.cuh"
 
 void print1() {
@@ -43,6 +44,7 @@ void print1() {
     gemm_reg_v5_swizzle(hA, hB, hC_gpu, M, K, N);
     gemm_reg_v6_1(hA, hB, hC_gpu, M, K, N);
     gemm_reg_v6_2(hA, hB, hC_gpu, M, K, N);
+    gemm_reg_v6_3(hA, hB, hC_gpu, M, K, N);
     
 
     for (int i = 0; i < M * N; i++) {
@@ -175,4 +177,3 @@ void print1() {
 int main() {
     print1();
 }
-
