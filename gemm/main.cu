@@ -7,6 +7,8 @@
 #include "./gemm_v4.cuh"
 #include "./gemm_v5.cuh"
 #include "./gemm_v5_p.cuh"
+#include "./gemm_v5_swizzle.cuh"
+#include "./gemm_v6.cuh"
 #include "../utils/utils.cuh"
 
 void print1() {
@@ -31,15 +33,14 @@ void print1() {
     // CPU 矩阵乘法
     gemm_cpu(hA, hB, hC_cpu, M, K, N);
 
-    // gemm_sharedmemory_v1(hA, hB, hC_gpu, M, K, N);
-
-    // gemm_reg_v1(hA, hB, hC_gpu, M, K, N);
-    // gemm_reg_v2(hA, hB, hC_gpu, M, K, N);
-    // gemm_reg_v3(hA, hB, hC_gpu, M, K, N);
-    // gemm_reg_v4(hA, hB, hC_gpu, M, K, N);
+    gemm_sharedmemory_v1(hA, hB, hC_gpu, M, K, N);
+    gemm_reg_v2(hA, hB, hC_gpu, M, K, N);
     gemm_reg_v3(hA, hB, hC_gpu, M, K, N);
+    gemm_reg_v4(hA, hB, hC_gpu, M, K, N);
     gemm_reg_v5(hA, hB, hC_gpu, M, K, N);
     gemm_reg_v5_p(hA, hB, hC_gpu, M, K, N);
+    gemm_reg_v6(hA, hB, hC_gpu, M, K, N);
+    gemm_reg_v5_swizzle(hA, hB, hC_gpu, M, K, N);
 
     for (int i = 0; i < M * N; i++) {
         if (fabs(hC_cpu[i] - hC_gpu[i]) > 1e-3f){
