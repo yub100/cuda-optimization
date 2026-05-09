@@ -1,6 +1,7 @@
 /* 
 该版本相较于gemm_reg_kernel_v2
 采用线性存储方法消除store shared memory B时的2路bank conflict
+其中BK可以更改，为8的整数倍（8，16，24，32，...,64）其中BK=64时性能最优，BK=8的奇数倍时性能较次
 */
 #pragma once
 #include <iostream>
