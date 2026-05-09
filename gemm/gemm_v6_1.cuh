@@ -85,8 +85,8 @@ __global__ void gemm_reg_kernel_v6_1(float *dA, float *dB, float *dC, int M, int
 
             // swizzle
             int k_group = (i >> 2) & (K_GROUPS - 1);
-            load_smema_m1 = load_smema_m1 ^ (k_group * M_BANK_SPAN);
-            load_smema_m2 = load_smema_m2 ^ (k_group * M_BANK_SPAN);
+            load_smemA_m1 = load_smemA_m1 ^ (k_group * M_BANK_SPAN);
+            load_smemA_m2 = load_smemA_m2 ^ (k_group * M_BANK_SPAN);
 
             FLOAT4(regA[0]) = FLOAT4(shared_A[i][load_smemA_m1]);
             FLOAT4(regA[4]) = FLOAT4(shared_A[i][load_smemA_m2]);
