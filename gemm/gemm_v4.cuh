@@ -1,6 +1,8 @@
 /* 
 该版本采用FLOAT4存取方法,因此smem元素必须为128x8个，且行列都必须为4的整数倍
 A、B的shape同前几个版本一致
+此版本消除了store shared mem过程中的bank conflict
+但是load smemA存在bank conflict
 */
 #include <iostream>
 #include <iomanip>

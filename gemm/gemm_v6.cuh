@@ -36,6 +36,8 @@ __global__ void gemm_reg_kernel_v6(float *dA, float *dB, float *dC, int M, int K
         }
     }
 
+    constexpr int K_GROUPS = BK / 4;          // BK=32 -> 8
+    constexpr int M_BANK_SPAN = 32 / K_GROUPS; // BK=32 -> 4
 
     for (int k = 0; k < K; k += BK) {
         // store smemA
@@ -51,7 +53,8 @@ __global__ void gemm_reg_kernel_v6(float *dA, float *dB, float *dC, int M, int K
             FLOAT4(load_a_r[0]) = FLOAT4(dA[start_gmema]);
 
             // swizzle
-            load_smema_m = load_smema_m ^ ((load_smema_k & 4) << 2);
+            int k_group = (load_smema_k >> 2) & (K_GROUPS - 1);
+            load_smema_m = load_smema_m ^ (k_group * M_BANK_SPAN);
 
             shared_A[load_smema_k][load_smema_m] = load_a_r[0];
             shared_A[load_smema_k + 1][load_smema_m] = load_a_r[1];
@@ -81,8 +84,9 @@ __global__ void gemm_reg_kernel_v6(float *dA, float *dB, float *dC, int M, int K
             int load_smemA_m2 = threadIdx.y * TM / 2 + BM / 2;
 
             // swizzle
-            load_smemA_m1 = load_smemA_m1 ^ ((i & 4) << 2);
-            load_smemA_m2 = load_smemA_m2 ^ ((i & 4) << 2);
+            int k_group = (i >> 2) & (K_GROUPS - 1);
+            load_smema_m1 = load_smema_m1 ^ (k_group * M_BANK_SPAN);
+            load_smema_m2 = load_smema_m2 ^ (k_group * M_BANK_SPAN);
 
             FLOAT4(regA[0]) = FLOAT4(shared_A[i][load_smemA_m1]);
             FLOAT4(regA[4]) = FLOAT4(shared_A[i][load_smemA_m2]);
