@@ -8,6 +8,8 @@
 #define FLOAT4(pointer) (reinterpret_cast<float4 *>(&(pointer))[0])
 #define OFFSET(m, n, ld) (m * ld + n)
 
+constexpr int BENCH_RUNS = 4;
+
 void random_matrix(float* mat, int size, float min = -1.0f, float max = 1.0f) {
     for (int i = 0; i < size; i++) {
         mat[i] = min + static_cast<float>(rand()) / RAND_MAX * (max - min);
@@ -16,7 +18,8 @@ void random_matrix(float* mat, int size, float min = -1.0f, float max = 1.0f) {
 
 class CudaTimer {
 public:
-    CudaTimer(std::string name) : _name(name) {
+    CudaTimer(std::string name, int repeats = 1)
+        : _name(name), _repeats(repeats > 0 ? repeats : 1) {
         
         cudaEventCreate(&start);
         cudaEventCreate(&end);
@@ -29,7 +32,15 @@ public:
         
         float milliseconds = 0.0f;
         cudaEventElapsedTime(&milliseconds, start, end);
-        std::cout << _name << ":\t\t" << milliseconds << "ms" << std::endl;
+        float average_ms = milliseconds / _repeats;
+        std::cout << _name << ":\t\t" << average_ms << "ms";
+        if (_repeats > 1) {
+            std::cout << " (avg of " << _repeats << ")";
+        }
+        std::cout << std::endl;
+
+        cudaEventDestroy(start);
+        cudaEventDestroy(end);
     }
 
     CudaTimer(const CudaTimer&) = delete;
@@ -38,4 +49,5 @@ public:
 private:
     cudaEvent_t start, end;
     std::string _name;
+    int _repeats;
 };

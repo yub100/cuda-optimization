@@ -13,7 +13,7 @@
 #include "../utils/utils.cuh"
 
 template <int BM, int BK, int BN, int TM, int TN>
-__global__ void gemm_reg_kernel_v6(float *dA, float *dB, float *dC, int M, int K, int N) {
+__global__ void gemm_reg_kernel_v6_1(float *dA, float *dB, float *dC, int M, int K, int N) {
     __shared__ float shared_A[BK][BM];
     __shared__ float shared_B[BK][BN];
     float regA[TM];
@@ -85,8 +85,8 @@ __global__ void gemm_reg_kernel_v6(float *dA, float *dB, float *dC, int M, int K
 
             // swizzle
             int k_group = (i >> 2) & (K_GROUPS - 1);
-            load_smemA_m1 = load_smemA_m1 ^ (k_group * M_BANK_SPAN);
-            load_smemA_m2 = load_smemA_m2 ^ (k_group * M_BANK_SPAN);
+            load_smema_m1 = load_smema_m1 ^ (k_group * M_BANK_SPAN);
+            load_smema_m2 = load_smema_m2 ^ (k_group * M_BANK_SPAN);
 
             FLOAT4(regA[0]) = FLOAT4(shared_A[i][load_smemA_m1]);
             FLOAT4(regA[4]) = FLOAT4(shared_A[i][load_smemA_m2]);
@@ -121,7 +121,7 @@ __global__ void gemm_reg_kernel_v6(float *dA, float *dB, float *dC, int M, int K
     }
 }
 
-void gemm_reg_v6(float *hA, float *hB, float *hC, int M, int K, int N) {
+void gemm_reg_v6_1(float *hA, float *hB, float *hC, int M, int K, int N) {
     float *dA, *dB, *dC;
 
     nvtxRangePush("gemm_reg_start_up_malloc");
@@ -149,13 +149,13 @@ void gemm_reg_v6(float *hA, float *hB, float *hC, int M, int K, int N) {
     dim3 block(BN / TN, BM / TM, 1);
     dim3 grid(num_BLOCK_x, num_BLOCK_y, 1);
 
-    nvtxRangePush("gemm_reg_kernel_v6");
-    gemm_reg_kernel_v6<BM, BK, BN, TM, TN><<<grid, block>>>(dA, dB, dC, M, K, N);
+    nvtxRangePush("gemm_reg_kernel_v6_1");
+    gemm_reg_kernel_v6_1<BM, BK, BN, TM, TN><<<grid, block>>>(dA, dB, dC, M, K, N);
     cudaDeviceSynchronize();
 
     {
-        CudaTimer timer("gemm_reg_v6");
-        gemm_reg_kernel_v6<BM, BK, BN, TM, TN><<<grid, block>>>(dA, dB, dC, M, K, N);
+        CudaTimer timer("gemm_reg_v6_1");
+        gemm_reg_kernel_v6_1<BM, BK, BN, TM, TN><<<grid, block>>>(dA, dB, dC, M, K, N);
         nvtxRangePop();
     }
 
