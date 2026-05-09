@@ -1,9 +1,5 @@
 /* 
-该版本采用对于smemB采用FLOAT4存取方法,同gemm_v4.cuh，smem大小必须固定
-优化smemA的store方式，按照KxM也就是转置形式顺序存储，存在2-bankconflict，且一次指令可以取更多数据
-store smemB存在2-bank conflict
-优化smem的load方式，但依旧使用FLOAT4取，每个线程计算4x4结果矩阵，对两个smem的取值依然存在2-bankconflict
-
+基于v5实现swizzle，该版本主要目的是对比swizzle对于原版未适配各种BK（BK恒为8）情况下的性能改进
 */
 #include <iostream>
 #include <iomanip>
