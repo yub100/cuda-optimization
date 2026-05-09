@@ -66,8 +66,6 @@ __global__ void gemm_reg_kernel_v5(float *dA, float *dB, float *dC, int M, int K
 
         #pragma unroll
         for (int i = 0; i < BK; i++) {
-            int str_regA_m = threadIdx.y * TM;
-            int str_regB_n = threadIdx.x * TN;
             FLOAT4(regA[0]) = FLOAT4(shared_A[i][threadIdx.y * TM / 2]);
             FLOAT4(regA[4]) = FLOAT4(shared_A[i][threadIdx.y * TM / 2 + BM / 2]);
             FLOAT4(regB[0]) = FLOAT4(shared_B[i][threadIdx.x * TN / 2]);

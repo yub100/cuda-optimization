@@ -1,5 +1,5 @@
 /* 
-该版本基于v5,适配了不同BK
+该版本基于v5,适配了不同BK,但BK%8 == 0
 结果显示BK越大，性能越好
 */
 #include <iostream>
@@ -73,8 +73,6 @@ __global__ void gemm_reg_kernel_v5_p(float *dA, float *dB, float *dC, int M, int
 
         #pragma unroll
         for (int i = 0; i < BK; i++) {
-            int str_regA_m = threadIdx.y * TM;
-            int str_regB_n = threadIdx.x * TN;
             FLOAT4(regA[0]) = FLOAT4(shared_A[i][threadIdx.y * TM / 2]);
             FLOAT4(regA[4]) = FLOAT4(shared_A[i][threadIdx.y * TM / 2 + BM / 2]);
             FLOAT4(regB[0]) = FLOAT4(shared_B[i][threadIdx.x * TN / 2]);
