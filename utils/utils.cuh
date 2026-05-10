@@ -18,8 +18,12 @@ void random_matrix(float* mat, int size, float min = -1.0f, float max = 1.0f) {
 
 class CudaTimer {
 public:
-    CudaTimer(std::string name, int repeats = 1)
-        : _name(name), _repeats(repeats > 0 ? repeats : 1) {
+    CudaTimer(std::string name = "", int repeats = 1, bool print_on_destroy = true)
+        : _name(name),
+          _repeats(repeats > 0 ? repeats : 1),
+          _print_on_destroy(print_on_destroy),
+          _stopped(false),
+          _milliseconds(0.0f) {
         
         cudaEventCreate(&start);
         cudaEventCreate(&end);
@@ -27,20 +31,29 @@ public:
     }
 
     ~CudaTimer() {
-        cudaEventRecord(end);
-        cudaEventSynchronize(end);
-        
-        float milliseconds = 0.0f;
-        cudaEventElapsedTime(&milliseconds, start, end);
-        float average_ms = milliseconds / _repeats;
-        std::cout << _name << ":\t\t" << average_ms << "ms";
-        if (_repeats > 1) {
-            std::cout << " (avg of " << _repeats << ")";
+        if (_print_on_destroy && !_stopped) {
+            float average_ms = stop();
+            if (!_name.empty()) {
+                std::cout << _name << ":\t\t" << average_ms << "ms";
+                if (_repeats > 1) {
+                    std::cout << " (avg of " << _repeats << ")";
+                }
+                std::cout << std::endl;
+            }
         }
-        std::cout << std::endl;
 
         cudaEventDestroy(start);
         cudaEventDestroy(end);
+    }
+
+    float stop() {
+        if (!_stopped) {
+            cudaEventRecord(end);
+            cudaEventSynchronize(end);
+            cudaEventElapsedTime(&_milliseconds, start, end);
+            _stopped = true;
+        }
+        return _milliseconds / _repeats;
     }
 
     CudaTimer(const CudaTimer&) = delete;
@@ -50,4 +63,7 @@ private:
     cudaEvent_t start, end;
     std::string _name;
     int _repeats;
+    bool _print_on_destroy;
+    bool _stopped;
+    float _milliseconds;
 };

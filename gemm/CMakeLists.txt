@@ -39,6 +39,11 @@ set(GEMM_HEADERS
     ${CMAKE_SOURCE_DIR}/gemm_v3.cuh
     ${CMAKE_SOURCE_DIR}/gemm_v4.cuh
     ${CMAKE_SOURCE_DIR}/gemm_v5.cuh
+    ${CMAKE_SOURCE_DIR}/gemm_v5_p.cuh
+    ${CMAKE_SOURCE_DIR}/gemm_v5_swizzle.cuh
+    ${CMAKE_SOURCE_DIR}/gemm_v6_1.cuh
+    ${CMAKE_SOURCE_DIR}/gemm_v6_2.cuh
+    ${CMAKE_SOURCE_DIR}/gemm_cutlass.cuh
     ${CMAKE_SOURCE_DIR}/../utils/utils.cuh
 )
 
@@ -52,6 +57,13 @@ target_include_directories(gemm_bench PRIVATE
     ${CMAKE_SOURCE_DIR}
     ${CMAKE_SOURCE_DIR}/../utils
 )
+
+if(DEFINED ENV{CUTLASS_DIR} AND NOT "$ENV{CUTLASS_DIR}" STREQUAL "")
+    target_include_directories(gemm_bench PRIVATE
+        $ENV{CUTLASS_DIR}/include
+        $ENV{CUTLASS_DIR}/tools/util/include
+    )
+endif()
 
 target_compile_definitions(gemm_bench PRIVATE
     USE_NVTX

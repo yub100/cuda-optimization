@@ -122,7 +122,7 @@ __global__ void gemm_reg_kernel_v6_1(float *dA, float *dB, float *dC, int M, int
 }
 
 template <int BM = 128, int BK = 8, int BN = 128, int TM = 8, int TN = 8>
-void gemm_reg_v6_1(float *hA, float *hB, float *hC, int M, int K, int N) {
+float gemm_reg_v6_1(float *hA, float *hB, float *hC, int M, int K, int N) {
     float *dA, *dB, *dC;
 
     nvtxRangePush("gemm_reg_start_up_malloc");
@@ -144,9 +144,13 @@ void gemm_reg_v6_1(float *hA, float *hB, float *hC, int M, int K, int N) {
     gemm_reg_kernel_v6_1<BM, BK, BN, TM, TN><<<grid, block>>>(dA, dB, dC, M, K, N);
     cudaDeviceSynchronize();
 
+    float avg_ms = 0.0f;
     {
-        CudaTimer timer("gemm_reg_v6_1");
-        gemm_reg_kernel_v6_1<BM, BK, BN, TM, TN><<<grid, block>>>(dA, dB, dC, M, K, N);
+        CudaTimer timer("gemm_reg_v6_1", BENCH_RUNS, false);
+        for (int run = 0; run < BENCH_RUNS; run++) {
+            gemm_reg_kernel_v6_1<BM, BK, BN, TM, TN><<<grid, block>>>(dA, dB, dC, M, K, N);
+        }
+        avg_ms = timer.stop();
         nvtxRangePop();
     }
 
@@ -164,4 +168,6 @@ void gemm_reg_v6_1(float *hA, float *hB, float *hC, int M, int K, int N) {
     cudaFree(dA);
     cudaFree(dB);
     cudaFree(dC);
+
+    return avg_ms;
 }
