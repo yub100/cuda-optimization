@@ -31,6 +31,18 @@ if(NOT NVTOOLSEXT_LIB)
     message(FATAL_ERROR "nvToolsExt not found, but your code uses NVTX")
 endif()
 
+find_library(CUBLAS_LIB cublas
+    PATHS
+        /usr/local/cuda/lib64
+        /usr/local/cuda-12.2/lib64
+        /usr/local/cuda-12.3/lib64
+        /usr/local/cuda-12.4/lib64
+)
+
+if(NOT CUBLAS_LIB)
+    message(FATAL_ERROR "cuBLAS not found, but gemm_cublas uses cublasSgemm")
+endif()
+
 # 手动列出依赖头文件，方便后面扩展
 set(GEMM_HEADERS
     ${CMAKE_SOURCE_DIR}/gemm_cpu.cuh
@@ -43,7 +55,7 @@ set(GEMM_HEADERS
     ${CMAKE_SOURCE_DIR}/gemm_v5_swizzle.cuh
     ${CMAKE_SOURCE_DIR}/gemm_v6_1.cuh
     ${CMAKE_SOURCE_DIR}/gemm_v6_2.cuh
-    ${CMAKE_SOURCE_DIR}/gemm_cutlass.cuh
+    ${CMAKE_SOURCE_DIR}/gemm_cublas.cuh
     ${CMAKE_SOURCE_DIR}/../utils/utils.cuh
 )
 
@@ -58,22 +70,6 @@ target_include_directories(gemm_bench PRIVATE
     ${CMAKE_SOURCE_DIR}/../utils
 )
 
-set(CUTLASS_ROOT "/gz-data/cuda_lib/third_party/cutlass" CACHE PATH "Path to CUTLASS checkout")
-
-if(DEFINED ENV{CUTLASS_DIR} AND NOT "$ENV{CUTLASS_DIR}" STREQUAL "")
-    set(CUTLASS_ROOT "$ENV{CUTLASS_DIR}" CACHE PATH "Path to CUTLASS checkout" FORCE)
-endif()
-
-if(EXISTS "${CUTLASS_ROOT}/include/cutlass/gemm/device/gemm.h")
-    target_include_directories(gemm_bench PRIVATE
-        ${CUTLASS_ROOT}/include
-        ${CUTLASS_ROOT}/tools/util/include
-    )
-    message(STATUS "Using CUTLASS from ${CUTLASS_ROOT}")
-else()
-    message(WARNING "CUTLASS not found at ${CUTLASS_ROOT}; gemm_cutlass will be skipped.")
-endif()
-
 target_compile_definitions(gemm_bench PRIVATE
     USE_NVTX
 )
@@ -85,6 +81,7 @@ target_compile_options(gemm_bench PRIVATE
 
 target_link_libraries(gemm_bench PRIVATE
     ${NVTOOLSEXT_LIB}
+    ${CUBLAS_LIB}
 )
 
 # Nsight Compute

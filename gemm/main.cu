@@ -16,7 +16,7 @@
 #include "./gemm_v5_swizzle.cuh"
 #include "./gemm_v6_1.cuh"
 #include "./gemm_v6_2.cuh"
-#include "./gemm_cutlass.cuh"
+#include "./gemm_cublas.cuh"
 #include "../utils/utils.cuh"
 
 void print1() {
@@ -72,7 +72,80 @@ void print1() {
 }
 
 
-using GemmFn = float (*)(float*, float*, float*, int, int, int);
+struct GemmSharedMemoryV1 {
+    template <int BM, int BK, int BN, int TM, int TN>
+    static float run(float* hA, float* hB, float* hC, int M, int K, int N) {
+        (void)BM;
+        (void)BK;
+        (void)BN;
+        (void)TM;
+        (void)TN;
+        return gemm_sharedmemory_v1(hA, hB, hC, M, K, N);
+    }
+};
+
+struct GemmRegV2 {
+    template <int BM, int BK, int BN, int TM, int TN>
+    static float run(float* hA, float* hB, float* hC, int M, int K, int N) {
+        return gemm_reg_v2<BM, BK, BN, TM, TN>(hA, hB, hC, M, K, N);
+    }
+};
+
+struct GemmRegV3 {
+    template <int BM, int BK, int BN, int TM, int TN>
+    static float run(float* hA, float* hB, float* hC, int M, int K, int N) {
+        return gemm_reg_v3<BM, BK, BN, TM, TN>(hA, hB, hC, M, K, N);
+    }
+};
+
+struct GemmRegV4 {
+    template <int BM, int BK, int BN, int TM, int TN>
+    static float run(float* hA, float* hB, float* hC, int M, int K, int N) {
+        return gemm_reg_v4<BM, BK, BN, TM, TN>(hA, hB, hC, M, K, N);
+    }
+};
+
+struct GemmRegV5 {
+    template <int BM, int BK, int BN, int TM, int TN>
+    static float run(float* hA, float* hB, float* hC, int M, int K, int N) {
+        return gemm_reg_v5<BM, BK, BN, TM, TN>(hA, hB, hC, M, K, N);
+    }
+};
+
+struct GemmRegV5P {
+    template <int BM, int BK, int BN, int TM, int TN>
+    static float run(float* hA, float* hB, float* hC, int M, int K, int N) {
+        return gemm_reg_v5_p<BM, BK, BN, TM, TN>(hA, hB, hC, M, K, N);
+    }
+};
+
+struct GemmRegV5Swizzle {
+    template <int BM, int BK, int BN, int TM, int TN>
+    static float run(float* hA, float* hB, float* hC, int M, int K, int N) {
+        return gemm_reg_v5_swizzle<BM, BK, BN, TM, TN>(hA, hB, hC, M, K, N);
+    }
+};
+
+struct GemmRegV61 {
+    template <int BM, int BK, int BN, int TM, int TN>
+    static float run(float* hA, float* hB, float* hC, int M, int K, int N) {
+        return gemm_reg_v6_1<BM, BK, BN, TM, TN>(hA, hB, hC, M, K, N);
+    }
+};
+
+struct GemmRegV62 {
+    template <int BM, int BK, int BN, int TM, int TN>
+    static float run(float* hA, float* hB, float* hC, int M, int K, int N) {
+        return gemm_reg_v6_2<BM, BK, BN, TM, TN>(hA, hB, hC, M, K, N);
+    }
+};
+
+struct GemmCublas {
+    template <int BM, int BK, int BN, int TM, int TN>
+    static float run(float* hA, float* hB, float* hC, int M, int K, int N) {
+        return gemm_cublas<BM, BK, BN, TM, TN>(hA, hB, hC, M, K, N);
+    }
+};
 
 bool check_result(const float* expected, const float* actual, int size, float eps, float* max_abs_diff) {
     float max_diff = 0.0f;
@@ -102,10 +175,9 @@ double calc_gflops(int M, int K, int N, float avg_ms) {
     return flops / (avg_ms / 1000.0) / 1e9;
 }
 
-template <int BM, int BK, int BN, int TM, int TN>
+template <typename Gemm, int BM, int BK, int BN, int TM, int TN>
 void run_case(std::ofstream* csv,
               const std::string& version,
-              GemmFn gemm_fn,
               float* hA,
               float* hB,
               float* hC_cpu,
@@ -115,7 +187,7 @@ void run_case(std::ofstream* csv,
               int N) {
     std::fill(hC_gpu, hC_gpu + M * N, 0.0f);
 
-    float avg_ms = gemm_fn(hA, hB, hC_gpu, M, K, N);
+    float avg_ms = Gemm::template run<BM, BK, BN, TM, TN>(hA, hB, hC_gpu, M, K, N);
     double gflops = calc_gflops(M, K, N, avg_ms);
 
     float max_abs_diff = 0.0f;
@@ -184,41 +256,35 @@ void bench() {
         std::cout << "gemm_cpu:\t\t" << cpu_ms << "ms" << std::endl;
     }
 
-    run_case<32, 0, 32, 0, 0>(&csv, "gemm_sharedmemory_v1", gemm_sharedmemory_v1, hA, hB, hC_cpu, hC_gpu, M, K, N);
+    run_case<GemmSharedMemoryV1, 32, 0, 32, 0, 0>(&csv, "gemm_sharedmemory_v1", hA, hB, hC_cpu, hC_gpu, M, K, N);
 
-    run_case<128, 8, 128, 8, 8>(&csv, "gemm_reg_v2", gemm_reg_v2<128, 8, 128, 8, 8>, hA, hB, hC_cpu, hC_gpu, M, K, N);
-    run_case<128, 16, 128, 8, 8>(&csv, "gemm_reg_v2", gemm_reg_v2<128, 16, 128, 8, 8>, hA, hB, hC_cpu, hC_gpu, M, K, N);
-    run_case<128, 32, 128, 8, 8>(&csv, "gemm_reg_v2", gemm_reg_v2<128, 32, 128, 8, 8>, hA, hB, hC_cpu, hC_gpu, M, K, N);
+    run_case<GemmRegV2, 128, 8, 128, 8, 8>(&csv, "gemm_reg_v2", hA, hB, hC_cpu, hC_gpu, M, K, N);
+    run_case<GemmRegV2, 128, 16, 128, 8, 8>(&csv, "gemm_reg_v2", hA, hB, hC_cpu, hC_gpu, M, K, N);
+    run_case<GemmRegV2, 128, 32, 128, 8, 8>(&csv, "gemm_reg_v2", hA, hB, hC_cpu, hC_gpu, M, K, N);
 
-    run_case<128, 8, 128, 8, 8>(&csv, "gemm_reg_v3", gemm_reg_v3<128, 8, 128, 8, 8>, hA, hB, hC_cpu, hC_gpu, M, K, N);
-    run_case<128, 16, 128, 8, 8>(&csv, "gemm_reg_v3", gemm_reg_v3<128, 16, 128, 8, 8>, hA, hB, hC_cpu, hC_gpu, M, K, N);
-    run_case<128, 32, 128, 8, 8>(&csv, "gemm_reg_v3", gemm_reg_v3<128, 32, 128, 8, 8>, hA, hB, hC_cpu, hC_gpu, M, K, N);
+    run_case<GemmRegV3, 128, 8, 128, 8, 8>(&csv, "gemm_reg_v3", hA, hB, hC_cpu, hC_gpu, M, K, N);
+    run_case<GemmRegV3, 128, 16, 128, 8, 8>(&csv, "gemm_reg_v3", hA, hB, hC_cpu, hC_gpu, M, K, N);
+    run_case<GemmRegV3, 128, 32, 128, 8, 8>(&csv, "gemm_reg_v3", hA, hB, hC_cpu, hC_gpu, M, K, N);
 
     // v4/v5/v5_swizzle use a BK=8-specific global-to-shared loading pattern.
-    run_case<128, 8, 128, 8, 8>(&csv, "gemm_reg_v4", gemm_reg_v4<128, 8, 128, 8, 8>, hA, hB, hC_cpu, hC_gpu, M, K, N);
-    run_case<128, 8, 128, 8, 8>(&csv, "gemm_reg_v5", gemm_reg_v5<128, 8, 128, 8, 8>, hA, hB, hC_cpu, hC_gpu, M, K, N);
+    run_case<GemmRegV4, 128, 8, 128, 8, 8>(&csv, "gemm_reg_v4", hA, hB, hC_cpu, hC_gpu, M, K, N);
+    run_case<GemmRegV5, 128, 8, 128, 8, 8>(&csv, "gemm_reg_v5", hA, hB, hC_cpu, hC_gpu, M, K, N);
 
-    run_case<128, 8, 128, 8, 8>(&csv, "gemm_reg_v5_p", gemm_reg_v5_p<128, 8, 128, 8, 8>, hA, hB, hC_cpu, hC_gpu, M, K, N);
-    run_case<128, 16, 128, 8, 8>(&csv, "gemm_reg_v5_p", gemm_reg_v5_p<128, 16, 128, 8, 8>, hA, hB, hC_cpu, hC_gpu, M, K, N);
-    run_case<128, 32, 128, 8, 8>(&csv, "gemm_reg_v5_p", gemm_reg_v5_p<128, 32, 128, 8, 8>, hA, hB, hC_cpu, hC_gpu, M, K, N);
+    run_case<GemmRegV5P, 128, 8, 128, 8, 8>(&csv, "gemm_reg_v5_p", hA, hB, hC_cpu, hC_gpu, M, K, N);
+    run_case<GemmRegV5P, 128, 16, 128, 8, 8>(&csv, "gemm_reg_v5_p", hA, hB, hC_cpu, hC_gpu, M, K, N);
+    run_case<GemmRegV5P, 128, 32, 128, 8, 8>(&csv, "gemm_reg_v5_p", hA, hB, hC_cpu, hC_gpu, M, K, N);
 
-    run_case<128, 8, 128, 8, 8>(&csv, "gemm_reg_v5_swizzle", gemm_reg_v5_swizzle<128, 8, 128, 8, 8>, hA, hB, hC_cpu, hC_gpu, M, K, N);
+    run_case<GemmRegV5Swizzle, 128, 8, 128, 8, 8>(&csv, "gemm_reg_v5_swizzle", hA, hB, hC_cpu, hC_gpu, M, K, N);
 
-    run_case<128, 8, 128, 8, 8>(&csv, "gemm_reg_v6_1", gemm_reg_v6_1<128, 8, 128, 8, 8>, hA, hB, hC_cpu, hC_gpu, M, K, N);
-    run_case<128, 16, 128, 8, 8>(&csv, "gemm_reg_v6_1", gemm_reg_v6_1<128, 16, 128, 8, 8>, hA, hB, hC_cpu, hC_gpu, M, K, N);
-    run_case<128, 32, 128, 8, 8>(&csv, "gemm_reg_v6_1", gemm_reg_v6_1<128, 32, 128, 8, 8>, hA, hB, hC_cpu, hC_gpu, M, K, N);
+    run_case<GemmRegV61, 128, 8, 128, 8, 8>(&csv, "gemm_reg_v6_1", hA, hB, hC_cpu, hC_gpu, M, K, N);
+    run_case<GemmRegV61, 128, 16, 128, 8, 8>(&csv, "gemm_reg_v6_1", hA, hB, hC_cpu, hC_gpu, M, K, N);
+    run_case<GemmRegV61, 128, 32, 128, 8, 8>(&csv, "gemm_reg_v6_1", hA, hB, hC_cpu, hC_gpu, M, K, N);
 
-    run_case<128, 8, 128, 8, 8>(&csv, "gemm_reg_v6_2", gemm_reg_v6_2<128, 8, 128, 8, 8>, hA, hB, hC_cpu, hC_gpu, M, K, N);
-    run_case<128, 16, 128, 8, 8>(&csv, "gemm_reg_v6_2", gemm_reg_v6_2<128, 16, 128, 8, 8>, hA, hB, hC_cpu, hC_gpu, M, K, N);
-    run_case<128, 32, 128, 8, 8>(&csv, "gemm_reg_v6_2", gemm_reg_v6_2<128, 32, 128, 8, 8>, hA, hB, hC_cpu, hC_gpu, M, K, N);
+    run_case<GemmRegV62, 128, 8, 128, 8, 8>(&csv, "gemm_reg_v6_2", hA, hB, hC_cpu, hC_gpu, M, K, N);
+    run_case<GemmRegV62, 128, 16, 128, 8, 8>(&csv, "gemm_reg_v6_2", hA, hB, hC_cpu, hC_gpu, M, K, N);
+    run_case<GemmRegV62, 128, 32, 128, 8, 8>(&csv, "gemm_reg_v6_2", hA, hB, hC_cpu, hC_gpu, M, K, N);
 
-#if GEMM_HAS_CUTLASS
-    run_case<128, 8, 128, 0, 0>(&csv, "gemm_cutlass", gemm_cutlass<128, 8, 128, 8, 8>, hA, hB, hC_cpu, hC_gpu, M, K, N);
-#else
-    if (print_on_destroy) {
-        std::cout << "gemm_cutlass skipped: CUTLASS headers were not found." << std::endl;
-    }
-#endif
+    run_case<GemmCublas, 0, 0, 0, 0, 0>(&csv, "gemm_cublas", hA, hB, hC_cpu, hC_gpu, M, K, N);
 
     if (write_csv) {
         csv.close();
