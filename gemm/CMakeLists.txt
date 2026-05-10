@@ -61,7 +61,7 @@ set(GEMM_HEADERS
 
 # 主程序
 add_executable(gemm_bench
-    ${CMAKE_SOURCE_DIR}/main.cu
+    ${CMAKE_SOURCE_DIR}/benchmark1.cu
     ${GEMM_HEADERS}
 )
 

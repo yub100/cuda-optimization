@@ -17,6 +17,7 @@
 #include "./gemm_v5_swizzle.cuh"
 #include "./gemm_v6_1.cuh"
 #include "./gemm_v6_2.cuh"
+#include "./gemm_ex.cuh"
 
 namespace {
 
@@ -34,12 +35,13 @@ struct GemmRegV5Swizzle;
 struct GemmRegV61;
 struct GemmRegV62;
 struct GemmCublas;
+struct GemmEx;
 
 // Change only these lines when you want to benchmark another version.
-using BenchGemm = GemmRegV5;
-constexpr const char* kBenchName = "Gemm_v5";
+using BenchGemm = GemmCublas;
+constexpr const char* kBenchName = "cutblas";
 constexpr int kBM = 128;
-constexpr int kBK = 8;
+constexpr int kBK = 16;
 constexpr int kBN = 128;
 constexpr int kTM = 8;
 constexpr int kTN = 8;
@@ -74,6 +76,21 @@ template <int BM, int BK, int BN, int TM, int TN>
 bool exact_tile_supported(int m, int n, int k) {
     return m % BM == 0 && n % BN == 0 && k % BK == 0;
 }
+
+
+struct GemmEx {
+    template <int BM, int BK, int BN, int TM, int TN>
+    static bool supported(int m, int n, int k) {
+        return BK == 8 && exact_tile_supported<BM, BK, BN, TM, TN>(m, n, k);
+    }
+
+    template <int BM, int BK, int BN, int TM, int TN>
+    static void launch(float* dA, float* dB, float* dC, int m, int k, int n) {
+        dim3 block(BN / TN, BM / TM, 1);
+        dim3 grid(n / BN, m / BM, 1);
+        gemm_ex<BM, BK, BN, TM, TN><<<grid, block>>>(dA, dB, dC, m, n, k);
+    }
+};
 
 struct GemmSharedMemoryV1 {
     template <int BM, int BK, int BN, int TM, int TN>

@@ -44,6 +44,8 @@ __global__ void gemm_reg_kernel_v5(float *dA, float *dB, float *dC, int M, int K
     int load_gmem_n = blockIdx_x * BN + load_smemb_n;
 
     for (int k = 0; k < K; k += BK) {
+         __syncthreads();
+
         int load_gmema_k = k + load_smema_k;
         int start_gmema = OFFSET(load_gmem_m, load_gmema_k, K);
 
@@ -75,8 +77,6 @@ __global__ void gemm_reg_kernel_v5(float *dA, float *dB, float *dC, int M, int K
                 }
             }
         }
-        
-        __syncthreads();
     }
 
     #pragma unroll

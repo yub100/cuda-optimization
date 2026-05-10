@@ -37,6 +37,7 @@ __global__ void gemm_reg_kernel_v6_2(float *dA, float *dB, float *dC, int M, int
     }
 
     for (int k = 0; k < K; k += BK) {
+        __syncthreads();
         // store smemA
         for (int i = 0; i < BM * BK; i += blockDim_x * blockDim_y * 4) {
 
@@ -97,7 +98,7 @@ __global__ void gemm_reg_kernel_v6_2(float *dA, float *dB, float *dC, int M, int
             }
         }
         
-        __syncthreads();
+        
     }
 
     #pragma unroll
