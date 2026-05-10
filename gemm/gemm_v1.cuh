@@ -79,7 +79,7 @@ float gemm_sharedmemory_v1(float *hA, float *hB, float *hC, int M, int K, int N)
 
     float avg_ms = 0.0f;
     {
-        CudaTimer timer("gemm_sharedmemory_v1", BENCH_RUNS, false);
+        CudaTimer timer("gemm_sharedmemory_v1", BENCH_RUNS, print_on_destroy);
         for (int run = 0; run < BENCH_RUNS; run++) {
             gemm_shared_memory_kernel_v1<32><<<grid, block>>>(dA, dB, dC, M, K, N);
         }

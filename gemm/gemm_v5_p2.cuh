@@ -150,7 +150,7 @@ float gemm_reg_v5_p(float *hA, float *hB, float *hC, int M, int K, int N) {
 
     float avg_ms = 0.0f;
     {
-        CudaTimer timer("gemm_reg_v5_p", BENCH_RUNS, false);
+        CudaTimer timer("gemm_reg_v5_p", BENCH_RUNS, print_on_destroy);
         for (int run = 0; run < BENCH_RUNS; run++) {
             gemm_reg_kernel_v5_p<BM, BK, BN, TM, TN><<<grid, block>>>(dA, dB, dC, M, K, N);
         }

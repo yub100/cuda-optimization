@@ -84,7 +84,7 @@ float gemm_cutlass(float *hA, float *hB, float *hC, int M, int K, int N) {
 
     float avg_ms = 0.0f;
     {
-        CudaTimer timer("gemm_cutlass", BENCH_RUNS, false);
+        CudaTimer timer("gemm_cutlass", BENCH_RUNS, print_on_destroy);
         for (int run = 0; run < BENCH_RUNS; run++) {
             status = gemm_op(args);
             if (status != cutlass::Status::kSuccess) {

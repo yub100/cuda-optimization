@@ -1,5 +1,6 @@
 #include <algorithm>
 #include <cmath>
+#include <cstdlib>
 #include <fstream>
 #include <iomanip>
 #include <iostream>
@@ -102,7 +103,7 @@ double calc_gflops(int M, int K, int N, float avg_ms) {
 }
 
 template <int BM, int BK, int BN, int TM, int TN>
-void run_case(std::ofstream& csv,
+void run_case(std::ofstream* csv,
               const std::string& version,
               GemmFn gemm_fn,
               float* hA,
@@ -120,27 +121,28 @@ void run_case(std::ofstream& csv,
     float max_abs_diff = 0.0f;
     bool ok = check_result(hC_cpu, hC_gpu, M * N, 1e-3f, &max_abs_diff);
 
-    csv << version << ','
-        << BM << ','
-        << BK << ','
-        << BN << ','
-        << TM << ','
-        << TN << ','
-        << M << ','
-        << K << ','
-        << N << ','
-        << avg_ms << ','
-        << gflops << ','
-        << (ok ? "true" : "false") << ','
-        << max_abs_diff << '\n';
+    if (write_csv && csv && csv->is_open()) {
+        *csv << version << ','
+             << BM << ','
+             << BK << ','
+             << BN << ','
+             << TM << ','
+             << TN << ','
+             << M << ','
+             << K << ','
+             << N << ','
+             << avg_ms << ','
+             << gflops << ','
+             << (ok ? "true" : "false") << ','
+             << max_abs_diff << '\n';
+    }
 
-    std::cout << std::left << std::setw(22) << version
-              << " BK=" << std::setw(3) << BK
-              << " avg_ms=" << std::setw(10) << avg_ms
-              << " GFLOPS=" << std::setw(12) << gflops
-              << " ok=" << (ok ? "true" : "false")
-              << " max_abs_diff=" << max_abs_diff
-              << std::endl;
+    if (!ok) {
+        std::cout << "Validation failed: " << version
+                  << " BK=" << BK
+                  << " max_abs_diff=" << max_abs_diff
+                  << std::endl;
+    }
 }
 
 void bench() {
@@ -161,67 +163,75 @@ void bench() {
     float cpu_ms = gemm_cpu(hA, hB, hC_cpu, M, K, N);
     double cpu_gflops = calc_gflops(M, K, N, cpu_ms);
 
-    std::ofstream csv("gemm_bench.csv");
-    csv << "version,BM,BK,BN,TM,TN,M,K,N,avg_ms,gflops,correct,max_abs_diff\n";
-    csv << "gemm_cpu,0,0,0,0,0,"
-        << M << ','
-        << K << ','
-        << N << ','
-        << cpu_ms << ','
-        << cpu_gflops << ",true,0\n";
+    std::ofstream csv;
+    if (write_csv) {
+        csv.open("gemm_bench.csv");
+        csv << "version,BM,BK,BN,TM,TN,M,K,N,avg_ms,gflops,correct,max_abs_diff\n";
+        csv << "gemm_cpu,0,0,0,0,0,"
+            << M << ','
+            << K << ','
+            << N << ','
+            << cpu_ms << ','
+            << cpu_gflops << ",true,0\n";
+    }
 
-    std::cout << "BENCH_RUNS=" << BENCH_RUNS
-              << ", M=" << M
-              << ", K=" << K
-              << ", N=" << N
-              << std::endl;
-    std::cout << "gemm_cpu              BK=0   avg_ms=" << cpu_ms
-              << " GFLOPS=" << cpu_gflops
-              << " ok=true max_abs_diff=0"
-              << std::endl;
+    if (print_on_destroy) {
+        std::cout << "BENCH_RUNS=" << BENCH_RUNS
+                  << ", M=" << M
+                  << ", K=" << K
+                  << ", N=" << N
+                  << std::endl;
+        std::cout << "gemm_cpu:\t\t" << cpu_ms << "ms" << std::endl;
+    }
 
-    run_case<32, 0, 32, 0, 0>(csv, "gemm_sharedmemory_v1", gemm_sharedmemory_v1, hA, hB, hC_cpu, hC_gpu, M, K, N);
+    run_case<32, 0, 32, 0, 0>(&csv, "gemm_sharedmemory_v1", gemm_sharedmemory_v1, hA, hB, hC_cpu, hC_gpu, M, K, N);
 
-    run_case<128, 8, 128, 8, 8>(csv, "gemm_reg_v2", gemm_reg_v2<128, 8, 128, 8, 8>, hA, hB, hC_cpu, hC_gpu, M, K, N);
-    run_case<128, 16, 128, 8, 8>(csv, "gemm_reg_v2", gemm_reg_v2<128, 16, 128, 8, 8>, hA, hB, hC_cpu, hC_gpu, M, K, N);
-    run_case<128, 32, 128, 8, 8>(csv, "gemm_reg_v2", gemm_reg_v2<128, 32, 128, 8, 8>, hA, hB, hC_cpu, hC_gpu, M, K, N);
+    run_case<128, 8, 128, 8, 8>(&csv, "gemm_reg_v2", gemm_reg_v2<128, 8, 128, 8, 8>, hA, hB, hC_cpu, hC_gpu, M, K, N);
+    run_case<128, 16, 128, 8, 8>(&csv, "gemm_reg_v2", gemm_reg_v2<128, 16, 128, 8, 8>, hA, hB, hC_cpu, hC_gpu, M, K, N);
+    run_case<128, 32, 128, 8, 8>(&csv, "gemm_reg_v2", gemm_reg_v2<128, 32, 128, 8, 8>, hA, hB, hC_cpu, hC_gpu, M, K, N);
 
-    run_case<128, 8, 128, 8, 8>(csv, "gemm_reg_v3", gemm_reg_v3<128, 8, 128, 8, 8>, hA, hB, hC_cpu, hC_gpu, M, K, N);
-    run_case<128, 16, 128, 8, 8>(csv, "gemm_reg_v3", gemm_reg_v3<128, 16, 128, 8, 8>, hA, hB, hC_cpu, hC_gpu, M, K, N);
-    run_case<128, 32, 128, 8, 8>(csv, "gemm_reg_v3", gemm_reg_v3<128, 32, 128, 8, 8>, hA, hB, hC_cpu, hC_gpu, M, K, N);
+    run_case<128, 8, 128, 8, 8>(&csv, "gemm_reg_v3", gemm_reg_v3<128, 8, 128, 8, 8>, hA, hB, hC_cpu, hC_gpu, M, K, N);
+    run_case<128, 16, 128, 8, 8>(&csv, "gemm_reg_v3", gemm_reg_v3<128, 16, 128, 8, 8>, hA, hB, hC_cpu, hC_gpu, M, K, N);
+    run_case<128, 32, 128, 8, 8>(&csv, "gemm_reg_v3", gemm_reg_v3<128, 32, 128, 8, 8>, hA, hB, hC_cpu, hC_gpu, M, K, N);
 
     // v4/v5/v5_swizzle use a BK=8-specific global-to-shared loading pattern.
-    run_case<128, 8, 128, 8, 8>(csv, "gemm_reg_v4", gemm_reg_v4<128, 8, 128, 8, 8>, hA, hB, hC_cpu, hC_gpu, M, K, N);
-    run_case<128, 8, 128, 8, 8>(csv, "gemm_reg_v5", gemm_reg_v5<128, 8, 128, 8, 8>, hA, hB, hC_cpu, hC_gpu, M, K, N);
+    run_case<128, 8, 128, 8, 8>(&csv, "gemm_reg_v4", gemm_reg_v4<128, 8, 128, 8, 8>, hA, hB, hC_cpu, hC_gpu, M, K, N);
+    run_case<128, 8, 128, 8, 8>(&csv, "gemm_reg_v5", gemm_reg_v5<128, 8, 128, 8, 8>, hA, hB, hC_cpu, hC_gpu, M, K, N);
 
-    run_case<128, 8, 128, 8, 8>(csv, "gemm_reg_v5_p", gemm_reg_v5_p<128, 8, 128, 8, 8>, hA, hB, hC_cpu, hC_gpu, M, K, N);
-    run_case<128, 16, 128, 8, 8>(csv, "gemm_reg_v5_p", gemm_reg_v5_p<128, 16, 128, 8, 8>, hA, hB, hC_cpu, hC_gpu, M, K, N);
-    run_case<128, 32, 128, 8, 8>(csv, "gemm_reg_v5_p", gemm_reg_v5_p<128, 32, 128, 8, 8>, hA, hB, hC_cpu, hC_gpu, M, K, N);
+    run_case<128, 8, 128, 8, 8>(&csv, "gemm_reg_v5_p", gemm_reg_v5_p<128, 8, 128, 8, 8>, hA, hB, hC_cpu, hC_gpu, M, K, N);
+    run_case<128, 16, 128, 8, 8>(&csv, "gemm_reg_v5_p", gemm_reg_v5_p<128, 16, 128, 8, 8>, hA, hB, hC_cpu, hC_gpu, M, K, N);
+    run_case<128, 32, 128, 8, 8>(&csv, "gemm_reg_v5_p", gemm_reg_v5_p<128, 32, 128, 8, 8>, hA, hB, hC_cpu, hC_gpu, M, K, N);
 
-    run_case<128, 8, 128, 8, 8>(csv, "gemm_reg_v5_swizzle", gemm_reg_v5_swizzle<128, 8, 128, 8, 8>, hA, hB, hC_cpu, hC_gpu, M, K, N);
+    run_case<128, 8, 128, 8, 8>(&csv, "gemm_reg_v5_swizzle", gemm_reg_v5_swizzle<128, 8, 128, 8, 8>, hA, hB, hC_cpu, hC_gpu, M, K, N);
 
-    run_case<128, 8, 128, 8, 8>(csv, "gemm_reg_v6_1", gemm_reg_v6_1<128, 8, 128, 8, 8>, hA, hB, hC_cpu, hC_gpu, M, K, N);
-    run_case<128, 16, 128, 8, 8>(csv, "gemm_reg_v6_1", gemm_reg_v6_1<128, 16, 128, 8, 8>, hA, hB, hC_cpu, hC_gpu, M, K, N);
-    run_case<128, 32, 128, 8, 8>(csv, "gemm_reg_v6_1", gemm_reg_v6_1<128, 32, 128, 8, 8>, hA, hB, hC_cpu, hC_gpu, M, K, N);
+    run_case<128, 8, 128, 8, 8>(&csv, "gemm_reg_v6_1", gemm_reg_v6_1<128, 8, 128, 8, 8>, hA, hB, hC_cpu, hC_gpu, M, K, N);
+    run_case<128, 16, 128, 8, 8>(&csv, "gemm_reg_v6_1", gemm_reg_v6_1<128, 16, 128, 8, 8>, hA, hB, hC_cpu, hC_gpu, M, K, N);
+    run_case<128, 32, 128, 8, 8>(&csv, "gemm_reg_v6_1", gemm_reg_v6_1<128, 32, 128, 8, 8>, hA, hB, hC_cpu, hC_gpu, M, K, N);
 
-    run_case<128, 8, 128, 8, 8>(csv, "gemm_reg_v6_2", gemm_reg_v6_2<128, 8, 128, 8, 8>, hA, hB, hC_cpu, hC_gpu, M, K, N);
-    run_case<128, 16, 128, 8, 8>(csv, "gemm_reg_v6_2", gemm_reg_v6_2<128, 16, 128, 8, 8>, hA, hB, hC_cpu, hC_gpu, M, K, N);
-    run_case<128, 32, 128, 8, 8>(csv, "gemm_reg_v6_2", gemm_reg_v6_2<128, 32, 128, 8, 8>, hA, hB, hC_cpu, hC_gpu, M, K, N);
+    run_case<128, 8, 128, 8, 8>(&csv, "gemm_reg_v6_2", gemm_reg_v6_2<128, 8, 128, 8, 8>, hA, hB, hC_cpu, hC_gpu, M, K, N);
+    run_case<128, 16, 128, 8, 8>(&csv, "gemm_reg_v6_2", gemm_reg_v6_2<128, 16, 128, 8, 8>, hA, hB, hC_cpu, hC_gpu, M, K, N);
+    run_case<128, 32, 128, 8, 8>(&csv, "gemm_reg_v6_2", gemm_reg_v6_2<128, 32, 128, 8, 8>, hA, hB, hC_cpu, hC_gpu, M, K, N);
 
 #if GEMM_HAS_CUTLASS
-    run_case<128, 8, 128, 0, 0>(csv, "gemm_cutlass", gemm_cutlass<128, 8, 128, 8, 8>, hA, hB, hC_cpu, hC_gpu, M, K, N);
+    run_case<128, 8, 128, 0, 0>(&csv, "gemm_cutlass", gemm_cutlass<128, 8, 128, 8, 8>, hA, hB, hC_cpu, hC_gpu, M, K, N);
 #else
-    std::cout << "gemm_cutlass skipped: CUTLASS headers were not found." << std::endl;
+    if (print_on_destroy) {
+        std::cout << "gemm_cutlass skipped: CUTLASS headers were not found." << std::endl;
+    }
 #endif
 
-    csv.close();
+    if (write_csv) {
+        csv.close();
+    }
 
     delete[] hA;
     delete[] hB;
     delete[] hC_cpu;
     delete[] hC_gpu;
 
-    std::cout << "Wrote gemm_bench.csv" << std::endl;
+    if (print_on_destroy && write_csv) {
+        std::cout << "Wrote gemm_bench.csv" << std::endl;
+    }
 }
 
 int main() {

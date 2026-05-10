@@ -58,11 +58,20 @@ target_include_directories(gemm_bench PRIVATE
     ${CMAKE_SOURCE_DIR}/../utils
 )
 
+set(CUTLASS_ROOT "/gz-data/cuda_lib/third_party/cutlass" CACHE PATH "Path to CUTLASS checkout")
+
 if(DEFINED ENV{CUTLASS_DIR} AND NOT "$ENV{CUTLASS_DIR}" STREQUAL "")
+    set(CUTLASS_ROOT "$ENV{CUTLASS_DIR}" CACHE PATH "Path to CUTLASS checkout" FORCE)
+endif()
+
+if(EXISTS "${CUTLASS_ROOT}/include/cutlass/gemm/device/gemm.h")
     target_include_directories(gemm_bench PRIVATE
-        $ENV{CUTLASS_DIR}/include
-        $ENV{CUTLASS_DIR}/tools/util/include
+        ${CUTLASS_ROOT}/include
+        ${CUTLASS_ROOT}/tools/util/include
     )
+    message(STATUS "Using CUTLASS from ${CUTLASS_ROOT}")
+else()
+    message(WARNING "CUTLASS not found at ${CUTLASS_ROOT}; gemm_cutlass will be skipped.")
 endif()
 
 target_compile_definitions(gemm_bench PRIVATE

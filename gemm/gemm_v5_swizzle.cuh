@@ -130,7 +130,7 @@ float gemm_reg_v5_swizzle(float *hA, float *hB, float *hC, int M, int K, int N) 
 
     float avg_ms = 0.0f;
     {
-        CudaTimer timer("gemm_reg_v5_swizzle", BENCH_RUNS, false);
+        CudaTimer timer("gemm_reg_v5_swizzle", BENCH_RUNS, print_on_destroy);
         for (int run = 0; run < BENCH_RUNS; run++) {
             gemm_reg_kernel_v5_swizzle<BM, BK, BN, TM, TN><<<grid, block>>>(dA, dB, dC, M, K, N);
         }
