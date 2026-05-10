@@ -11,7 +11,7 @@
 #include <nvToolsExt.h>
 #include "../utils/utils.cuh"
 
-template <int BM, int BK, int BN, int TM, int TN>
+template <int BM = 128, int BK = 8, int BN = 128, int TM = 8, int TN = 8>
 __global__ void gemm_reg_kernel_v5_swizzle(float *dA, float *dB, float *dC, int M, int K, int N) {
     __shared__ float shared_A[BK][BM];
     __shared__ float shared_B[BK][BN];
@@ -105,6 +105,7 @@ __global__ void gemm_reg_kernel_v5_swizzle(float *dA, float *dB, float *dC, int 
     }
 }
 
+template <int BM = 128, int BK = 8, int BN = 128, int TM = 8, int TN = 8>
 void gemm_reg_v5_swizzle(float *hA, float *hB, float *hC, int M, int K, int N) {
     float *dA, *dB, *dC;
 
@@ -116,16 +117,6 @@ void gemm_reg_v5_swizzle(float *hA, float *hB, float *hC, int M, int K, int N) {
 
     cudaMemcpy(dA, hA, M * K * sizeof(float), cudaMemcpyHostToDevice);
     cudaMemcpy(dB, hB, N * K * sizeof(float), cudaMemcpyHostToDevice);
-
-
-    // one thread calculate 8x8 matrix.
-    // one Block calculate BM x BN of C.
-    constexpr int BM = 128;
-    constexpr int BN = 128;
-    constexpr int BK = 8;
-    
-    constexpr int TM = 8;
-    constexpr int TN = 8;
 
     int num_BLOCK_x = (N + BN - 1) / BN;
     int num_BLOCK_y = (M + BM - 1) / BM;
