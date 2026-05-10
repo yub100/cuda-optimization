@@ -32,6 +32,34 @@ inline const char* cublas_status_to_string(cublasStatus_t status) {
     }
 }
 
+inline cublasStatus_t gemm_cublas_sgemm(cublasHandle_t handle,
+                                        float* dA,
+                                        float* dB,
+                                        float* dC,
+                                        int M,
+                                        int K,
+                                        int N) {
+    const float alpha = 1.0f;
+    const float beta = 0.0f;
+
+    // cuBLAS uses column-major. Row-major C=A*B is equivalent to
+    // column-major C^T = B^T * A^T with output shape N x M.
+    return cublasSgemm(handle,
+                       CUBLAS_OP_N,
+                       CUBLAS_OP_N,
+                       N,
+                       M,
+                       K,
+                       &alpha,
+                       dB,
+                       N,
+                       dA,
+                       K,
+                       &beta,
+                       dC,
+                       N);
+}
+
 template <int BM = 128, int BK = 8, int BN = 128, int TM = 8, int TN = 8>
 float gemm_cublas(float *hA, float *hB, float *hC, int M, int K, int N) {
     (void)BM;
@@ -73,26 +101,8 @@ float gemm_cublas(float *hA, float *hB, float *hC, int M, int K, int N) {
         return -1.0f;
     }
 
-    const float alpha = 1.0f;
-    const float beta = 0.0f;
-
     auto run_gemm = [&]() {
-        // cuBLAS uses column-major. Row-major C=A*B is equivalent to
-        // column-major C^T = B^T * A^T with output shape N x M.
-        return cublasSgemm(handle,
-                           CUBLAS_OP_N,
-                           CUBLAS_OP_N,
-                           N,
-                           M,
-                           K,
-                           &alpha,
-                           dB,
-                           N,
-                           dA,
-                           K,
-                           &beta,
-                           dC,
-                           N);
+        return gemm_cublas_sgemm(handle, dA, dB, dC, M, K, N);
     };
 
     nvtxRangePush("gemm_cublas_kernel");

@@ -22,7 +22,7 @@ __global__ void gemm_reg_kernel_v5(float *dA, float *dB, float *dC, int M, int K
     __shared__ float shared_B[BK][BN];
     float regA[TM];
     float regB[TN];
-    float regC[TM][TN];
+    float regC[TM][TN] = {0.0};
     float load_a_r[4];
 
     constexpr int blockDim_x = BN / TN;
@@ -33,12 +33,6 @@ __global__ void gemm_reg_kernel_v5(float *dA, float *dB, float *dC, int M, int K
     int tid = threadIdx.y * blockDim_x + threadIdx.x;
     constexpr int BLOCK_THREADS = (BM / TM) * (BN / TN);
 
-    #pragma unroll
-    for (int j = 0; j < TM; j++) {
-        for (int k = 0; k < TN; k++) {
-            regC[j][k] = 0.0f;
-        }
-    }
 
     int load_smema_k = (tid & 1) << 2; //  y = (tid == 0 ? 0 : 4)
     int load_smema_m = tid / 2;
@@ -75,6 +69,7 @@ __global__ void gemm_reg_kernel_v5(float *dA, float *dB, float *dC, int M, int K
             // calculate tile C
             #pragma unroll
             for (int j = 0; j < TM; j++) {
+                #pragma unroll
                 for (int k = 0; k < TN; k++) {
                     regC[j][k] += regA[j] * regB[k];
                 }

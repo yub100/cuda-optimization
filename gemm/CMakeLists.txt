@@ -65,7 +65,16 @@ add_executable(gemm_bench
     ${GEMM_HEADERS}
 )
 
+add_executable(gemm_bench2
+    ${CMAKE_SOURCE_DIR}/benchmark2.cu
+)
+
 target_include_directories(gemm_bench PRIVATE
+    ${CMAKE_SOURCE_DIR}
+    ${CMAKE_SOURCE_DIR}/../utils
+)
+
+target_include_directories(gemm_bench2 PRIVATE
     ${CMAKE_SOURCE_DIR}
     ${CMAKE_SOURCE_DIR}/../utils
 )
@@ -79,7 +88,17 @@ target_compile_options(gemm_bench PRIVATE
     $<$<COMPILE_LANGUAGE:CXX>:-O3>
 )
 
+target_compile_options(gemm_bench2 PRIVATE
+    $<$<COMPILE_LANGUAGE:CUDA>:-O3 --use_fast_math -lineinfo -Xptxas=-v>
+    $<$<COMPILE_LANGUAGE:CXX>:-O3>
+)
+
 target_link_libraries(gemm_bench PRIVATE
+    ${NVTOOLSEXT_LIB}
+    ${CUBLAS_LIB}
+)
+
+target_link_libraries(gemm_bench2 PRIVATE
     ${NVTOOLSEXT_LIB}
     ${CUBLAS_LIB}
 )
