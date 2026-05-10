@@ -38,8 +38,8 @@ struct GemmCublas;
 struct GemmEx;
 
 // Change only these lines when you want to benchmark another version.
-using BenchGemm = GemmCublas;
-constexpr const char* kBenchName = "cutblas";
+using BenchGemm = GemmRegV62;
+constexpr const char* kBenchName = "GemmRegV62";
 constexpr int kBM = 128;
 constexpr int kBK = 16;
 constexpr int kBN = 128;
@@ -252,7 +252,7 @@ struct GemmCublas {
 };
 
 template <typename Gemm, int BM, int BK, int BN, int TM, int TN>
-void run_one_shape(const char* name, int m, int n, int k) {
+void run_one_shape(const char* name, int m, int n, int k, const float* hA_full, const float* hB_full, int max_n) {
     if (!Gemm::template supported<BM, BK, BN, TM, TN>(m, n, k)) {
         std::printf("M N K = %6d %6d %6d, %s skipped: unsupported tile shape BM=%d BK=%d BN=%d TM=%d TN=%d\n",
                     m,
@@ -279,8 +279,14 @@ void run_one_shape(const char* name, int m, int n, int k) {
     CHECK_CUDA(cudaMalloc(reinterpret_cast<void**>(&dB), bytesB));
     CHECK_CUDA(cudaMalloc(reinterpret_cast<void**>(&dC), bytesC));
 
-    CHECK_CUDA(cudaMemset(dA, 0, bytesA));
-    CHECK_CUDA(cudaMemset(dB, 0, bytesB));
+    CHECK_CUDA(cudaMemcpy(dA, hA_full, bytesA, cudaMemcpyHostToDevice));
+    CHECK_CUDA(cudaMemcpy2D(dB,
+                            static_cast<std::size_t>(n) * sizeof(float),
+                            hB_full,
+                            static_cast<std::size_t>(max_n) * sizeof(float),
+                            static_cast<std::size_t>(n) * sizeof(float),
+                            k,
+                            cudaMemcpyHostToDevice));
     CHECK_CUDA(cudaMemset(dC, 0, bytesC));
 
     for (int i = 0; i < kWarmupRuns; i++) {
@@ -346,13 +352,22 @@ int main() {
         12288,
         16384,
     };
+    const int max_size = sizes[sizeof(sizes) / sizeof(sizes[0]) - 1];
+
+    std::vector<float> hA_full(static_cast<std::size_t>(max_size) * kFixedK);
+    std::vector<float> hB_full(static_cast<std::size_t>(kFixedK) * max_size);
+
+    srand(42);
+    random_matrix(hA_full.data(), static_cast<int>(hA_full.size()));
+    random_matrix(hB_full.data(), static_cast<int>(hB_full.size()));
 
     CHECK_CUBLAS(cublasCreate(&g_cublas_handle));
     CHECK_CUBLAS(cublasSetMathMode(g_cublas_handle, CUBLAS_PEDANTIC_MATH));
 
     printf("Kernel = %s\n", kBenchName);
     for (int size : sizes) {
-        run_one_shape<BenchGemm, kBM, kBK, kBN, kTM, kTN>(kBenchName, size, size, kFixedK);
+        run_one_shape<BenchGemm, kBM, kBK, kBN, kTM, kTN>(
+            kBenchName, size, size, kFixedK, hA_full.data(), hB_full.data(), max_size);
     }
 
     CHECK_CUBLAS(cublasDestroy(g_cublas_handle));
