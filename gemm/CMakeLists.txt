@@ -1,6 +1,13 @@
 cmake_minimum_required(VERSION 3.18)
 
+# # 强制使用 GCC 12
+# set(CMAKE_C_COMPILER /usr/bin/gcc-12 CACHE PATH "C compiler")
+# set(CMAKE_CXX_COMPILER /usr/bin/g++-12 CACHE PATH "C++ compiler")
+# set(CMAKE_CUDA_HOST_COMPILER /usr/bin/g++-12 CACHE PATH "CUDA host compiler")
+
 project(cuda_gemm_bench LANGUAGES CXX CUDA)
+
+
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CUDA_STANDARD 17)
@@ -79,23 +86,6 @@ function(configure_gemm_target target_name)
     )
 endfunction()
 
-add_executable(main
-    ${GEMM_DIR}/main.cu
-    ${GEMM_HEADERS}
-)
-configure_gemm_target(main)
-
-add_executable(gemm_bench
-    ${GEMM_DIR}/benchmark1.cu
-    ${GEMM_HEADERS}
-)
-configure_gemm_target(gemm_bench)
-
-add_executable(gemm_bench2
-    ${GEMM_DIR}/benchmark2.cu
-    ${GEMM_HEADERS}
-)
-configure_gemm_target(gemm_bench2)
 
 function(add_ncu_target target_name executable_name output_name)
     add_custom_target(${target_name}
@@ -127,13 +117,37 @@ function(add_nsys_target target_name executable_name output_name)
     )
 endfunction()
 
-# Nsight Compute
-add_ncu_target(ncu gemm_bench gemm_bench)
-add_ncu_target(ncu2 gemm_bench2 gemm_bench2)
-add_ncu_target(ncu3 main main)
+######################main
+# add_executable(main
+#     ${GEMM_DIR}/main.cu
+#     ${GEMM_HEADERS}
+# )
+# configure_gemm_target(main)
 
-# Nsight Systems
-add_nsys_target(nsys gemm_bench gemm_bench)
+# add_ncu_target(ncu3 main main)
+# add_nsys_target(nsys3 main main)
+
+
+######################benchmark1  
+# add_executable(gemm_bench
+#     ${GEMM_DIR}/benchmark1.cu
+#     ${GEMM_HEADERS}
+# )
+# configure_gemm_target(gemm_bench)
+# # ncu
+# add_ncu_target(ncu gemm_bench gemm_bench)
+# add_nsys_target(nsys gemm_bench gemm_bench)
+
+
+######################benchmark2
+add_executable(gemm_bench2
+    ${GEMM_DIR}/benchmark2.cu
+    ${GEMM_HEADERS}
+)
+configure_gemm_target(gemm_bench2)
+
+add_ncu_target(ncu2 gemm_bench2 gemm_bench2)
 add_nsys_target(nsys2 gemm_bench2 gemm_bench2)
-add_nsys_target(nsys3 main main)
+
+
 
