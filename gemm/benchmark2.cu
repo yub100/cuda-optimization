@@ -38,8 +38,8 @@ struct GemmCublas;
 struct GemmEx;
 
 // Change only these lines when you want to benchmark another version.
-using BenchGemm = GemmRegV62;
-constexpr const char* kBenchName = "GemmRegV62";
+using BenchGemm = GemmRegV5P;
+constexpr const char* kBenchName = "GemmRegV5P";
 constexpr int kBM = 128;
 constexpr int kBK = 16;
 constexpr int kBN = 128;

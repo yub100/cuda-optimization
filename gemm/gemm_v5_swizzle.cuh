@@ -48,6 +48,7 @@ __global__ void gemm_reg_kernel_v5_swizzle(float *dA, float *dB, float *dC, int 
     load_smema_m = (tid + (32 - 64 * ((tid >> 5) & 1)) * (tid & 1)) >> 1;
 
     for (int k = 0; k < K; k += BK) {
+        __syncthreads();
         int load_gmema_k = k + load_smema_k;
         int start_gmema = OFFSET(load_gmem_m, load_gmema_k, K);
 
@@ -85,8 +86,6 @@ __global__ void gemm_reg_kernel_v5_swizzle(float *dA, float *dB, float *dC, int 
                 }
             }
         }
-        
-        __syncthreads();
     }
 
     #pragma unroll

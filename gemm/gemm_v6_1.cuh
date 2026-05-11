@@ -18,7 +18,7 @@ __global__ void gemm_reg_kernel_v6_1(float *dA, float *dB, float *dC, int M, int
     __shared__ float shared_B[BK][BN];
     float regA[TM];
     float regB[TN];
-    float regC[TM][TN];
+    float regC[TM][TN] = {0.0};
     float load_a_r[4];
 
     constexpr int blockDim_x = BN / TN;
@@ -29,17 +29,11 @@ __global__ void gemm_reg_kernel_v6_1(float *dA, float *dB, float *dC, int M, int
     int tid = threadIdx.y * blockDim_x + threadIdx.x;
     constexpr int BLOCK_THREADS = (BM / TM) * (BN / TN);
 
-    #pragma unroll
-    for (int j = 0; j < TM; j++) {
-        for (int k = 0; k < TN; k++) {
-            regC[j][k] = 0.0f;
-        }
-    }
-
     constexpr int K_GROUPS = BK / 4;          // BK=32 -> 8
     constexpr int M_BANK_SPAN = 32 / K_GROUPS; // BK=32 -> 4
 
     for (int k = 0; k < K; k += BK) {
+        __syncthreads();
         // store smemA
         for (int i = 0; i < BM * BK; i += blockDim_x * blockDim_y * 4) {
 
@@ -102,7 +96,7 @@ __global__ void gemm_reg_kernel_v6_1(float *dA, float *dB, float *dC, int M, int
             }
         }
         
-        __syncthreads();
+        
     }
 
     #pragma unroll

@@ -18,9 +18,15 @@ set(NSYS_DIR ${OUTPUT_DIR}/nsys)
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${OUTPUT_DIR})
 
+set(GEMM_DIR ${CMAKE_CURRENT_SOURCE_DIR})
+set(UTILS_DIR ${GEMM_DIR}/../utils)
+
+find_package(CUDAToolkit REQUIRED)
+
 # NVTX
 find_library(NVTOOLSEXT_LIB nvToolsExt
     PATHS
+        ${CUDAToolkit_LIBRARY_DIR}
         /usr/local/cuda/lib64
         /usr/local/cuda-12.2/lib64
         /usr/local/cuda-12.3/lib64
@@ -31,102 +37,103 @@ if(NOT NVTOOLSEXT_LIB)
     message(FATAL_ERROR "nvToolsExt not found, but your code uses NVTX")
 endif()
 
-find_library(CUBLAS_LIB cublas
-    PATHS
-        /usr/local/cuda/lib64
-        /usr/local/cuda-12.2/lib64
-        /usr/local/cuda-12.3/lib64
-        /usr/local/cuda-12.4/lib64
-)
-
-if(NOT CUBLAS_LIB)
-    message(FATAL_ERROR "cuBLAS not found, but gemm_cublas uses cublasSgemm")
-endif()
-
 # 手动列出依赖头文件，方便后面扩展
 set(GEMM_HEADERS
-    ${CMAKE_SOURCE_DIR}/gemm_cpu.cuh
-    ${CMAKE_SOURCE_DIR}/gemm_v1.cuh
-    ${CMAKE_SOURCE_DIR}/gemm_v2.cuh
-    ${CMAKE_SOURCE_DIR}/gemm_v3.cuh
-    ${CMAKE_SOURCE_DIR}/gemm_v4.cuh
-    ${CMAKE_SOURCE_DIR}/gemm_v5.cuh
-    ${CMAKE_SOURCE_DIR}/gemm_v5_p.cuh
-    ${CMAKE_SOURCE_DIR}/gemm_v5_swizzle.cuh
-    ${CMAKE_SOURCE_DIR}/gemm_v6_1.cuh
-    ${CMAKE_SOURCE_DIR}/gemm_v6_2.cuh
-    ${CMAKE_SOURCE_DIR}/gemm_cublas.cuh
-    ${CMAKE_SOURCE_DIR}/../utils/utils.cuh
+    ${GEMM_DIR}/gemm_cpu.cuh
+    ${GEMM_DIR}/gemm_v1.cuh
+    ${GEMM_DIR}/gemm_v2.cuh
+    ${GEMM_DIR}/gemm_v3.cuh
+    ${GEMM_DIR}/gemm_v4.cuh
+    ${GEMM_DIR}/gemm_v5.cuh
+    ${GEMM_DIR}/gemm_v5_p.cuh
+    ${GEMM_DIR}/gemm_v5_swizzle.cuh
+    ${GEMM_DIR}/gemm_v6_1.cuh
+    ${GEMM_DIR}/gemm_v6_2.cuh
+    ${GEMM_DIR}/gemm_ex.cuh
+    ${GEMM_DIR}/gemm_cublas.cuh
+    ${UTILS_DIR}/utils.cuh
 )
 
-# 主程序
-add_executable(gemm_bench
-    ${CMAKE_SOURCE_DIR}/benchmark1.cu
+function(configure_gemm_target target_name)
+    target_include_directories(${target_name} PRIVATE
+        ${GEMM_DIR}
+        ${UTILS_DIR}
+        ${CUDAToolkit_INCLUDE_DIRS}
+    )
+
+    target_compile_definitions(${target_name} PRIVATE
+        USE_NVTX
+    )
+
+    target_compile_options(${target_name} PRIVATE
+        $<$<COMPILE_LANGUAGE:CUDA>:-O3>
+        $<$<COMPILE_LANGUAGE:CUDA>:--use_fast_math>
+        $<$<COMPILE_LANGUAGE:CUDA>:-lineinfo>
+        $<$<COMPILE_LANGUAGE:CUDA>:-Xptxas=-v>
+        $<$<COMPILE_LANGUAGE:CXX>:-O3>
+    )
+
+    target_link_libraries(${target_name} PRIVATE
+        ${NVTOOLSEXT_LIB}
+        CUDA::cublas
+    )
+endfunction()
+
+add_executable(main
+    ${GEMM_DIR}/main.cu
     ${GEMM_HEADERS}
 )
+configure_gemm_target(main)
+
+add_executable(gemm_bench
+    ${GEMM_DIR}/benchmark1.cu
+    ${GEMM_HEADERS}
+)
+configure_gemm_target(gemm_bench)
 
 add_executable(gemm_bench2
-    ${CMAKE_SOURCE_DIR}/benchmark2.cu
+    ${GEMM_DIR}/benchmark2.cu
+    ${GEMM_HEADERS}
 )
+configure_gemm_target(gemm_bench2)
 
-target_include_directories(gemm_bench PRIVATE
-    ${CMAKE_SOURCE_DIR}
-    ${CMAKE_SOURCE_DIR}/../utils
-)
+function(add_ncu_target target_name executable_name output_name)
+    add_custom_target(${target_name}
+        COMMAND ${CMAKE_COMMAND} -E make_directory ${NCU_DIR}
+        COMMAND ncu
+                --set full
+                --target-processes all
+                --force-overwrite
+                --export ${NCU_DIR}/${output_name}
+                $<TARGET_FILE:${executable_name}>
+        DEPENDS ${executable_name}
+        WORKING_DIRECTORY ${OUTPUT_DIR}
+        COMMENT "Running Nsight Compute for ${executable_name}"
+    )
+endfunction()
 
-target_include_directories(gemm_bench2 PRIVATE
-    ${CMAKE_SOURCE_DIR}
-    ${CMAKE_SOURCE_DIR}/../utils
-)
-
-target_compile_definitions(gemm_bench PRIVATE
-    USE_NVTX
-)
-
-target_compile_options(gemm_bench PRIVATE
-    $<$<COMPILE_LANGUAGE:CUDA>:-O3 --use_fast_math -lineinfo -Xptxas=-v>
-    $<$<COMPILE_LANGUAGE:CXX>:-O3>
-)
-
-target_compile_options(gemm_bench2 PRIVATE
-    $<$<COMPILE_LANGUAGE:CUDA>:-O3 --use_fast_math -lineinfo -Xptxas=-v>
-    $<$<COMPILE_LANGUAGE:CXX>:-O3>
-)
-
-target_link_libraries(gemm_bench PRIVATE
-    ${NVTOOLSEXT_LIB}
-    ${CUBLAS_LIB}
-)
-
-target_link_libraries(gemm_bench2 PRIVATE
-    ${NVTOOLSEXT_LIB}
-    ${CUBLAS_LIB}
-)
+function(add_nsys_target target_name executable_name output_name)
+    add_custom_target(${target_name}
+        COMMAND ${CMAKE_COMMAND} -E make_directory ${NSYS_DIR}
+        COMMAND nsys profile
+                --trace=cuda,nvtx,osrt
+                --cuda-memory-usage=true
+                --force-overwrite=true
+                --output=${NSYS_DIR}/${output_name}
+                $<TARGET_FILE:${executable_name}>
+        DEPENDS ${executable_name}
+        WORKING_DIRECTORY ${OUTPUT_DIR}
+        COMMENT "Running Nsight Systems for ${executable_name}"
+    )
+endfunction()
 
 # Nsight Compute
-add_custom_target(ncu
-    COMMAND ${CMAKE_COMMAND} -E make_directory ${NCU_DIR}
-    COMMAND ncu
-            --set full
-            --target-processes all
-            --force-overwrite
-            --export ${NCU_DIR}/gemm_bench
-            $<TARGET_FILE:gemm_bench>
-    DEPENDS gemm_bench
-    WORKING_DIRECTORY ${OUTPUT_DIR}
-    COMMENT "Running Nsight Compute"
-)
+add_ncu_target(ncu gemm_bench gemm_bench)
+add_ncu_target(ncu2 gemm_bench2 gemm_bench2)
+add_ncu_target(ncu3 main main)
 
 # Nsight Systems
-add_custom_target(nsys
-    COMMAND ${CMAKE_COMMAND} -E make_directory ${NSYS_DIR}
-    COMMAND nsys profile
-            --trace=cuda,nvtx,osrt
-            --cuda-memory-usage=true
-            --force-overwrite=true
-            --output=${NSYS_DIR}/gemm_bench
-            $<TARGET_FILE:gemm_bench>
-    DEPENDS gemm_bench
-    WORKING_DIRECTORY ${OUTPUT_DIR}
-    COMMENT "Running Nsight Systems"
-)
+add_nsys_target(nsys gemm_bench gemm_bench)
+add_nsys_target(nsys2 gemm_bench2 gemm_bench2)
+add_nsys_target(nsys3 main main)
+
