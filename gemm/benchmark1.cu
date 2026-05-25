@@ -16,6 +16,7 @@
 #include "./gemm_v5_swizzle.cuh"
 #include "./gemm_v6_1.cuh"
 #include "./gemm_v6_2.cuh"
+#include "./gemm_v7.cuh"
 #include "./gemm_cublas.cuh"
 #include "../utils/utils.cuh"
 
@@ -84,6 +85,13 @@ struct GemmRegV62 {
     template <int BM, int BK, int BN, int TM, int TN>
     static float run(float* hA, float* hB, float* hC, int M, int K, int N) {
         return gemm_reg_v6_2<BM, BK, BN, TM, TN>(hA, hB, hC, M, K, N);
+    }
+};
+
+struct GemmRegV7 {
+    template <int BM, int BK, int BN, int TM, int TN>
+    static float run(float* hA, float* hB, float* hC, int M, int K, int N) {
+        return gemm_reg_v7<BM, BK, BN, TM, TN>(hA, hB, hC, M, K, N);
     }
 };
 
@@ -233,6 +241,10 @@ void bench() {
     run_case<GemmRegV62, 128, 8, 128, 8, 8>(&csv, "gemm_reg_v6_2", hA, hB, hC_cpu, hC_gpu, M, K, N);
     run_case<GemmRegV62, 128, 16, 128, 8, 8>(&csv, "gemm_reg_v6_2", hA, hB, hC_cpu, hC_gpu, M, K, N);
     run_case<GemmRegV62, 128, 32, 128, 8, 8>(&csv, "gemm_reg_v6_2", hA, hB, hC_cpu, hC_gpu, M, K, N);
+
+    run_case<GemmRegV7, 128, 8, 128, 8, 8>(&csv, "gemm_reg_v7", hA, hB, hC_cpu, hC_gpu, M, K, N);
+    run_case<GemmRegV7, 128, 16, 128, 8, 8>(&csv, "gemm_reg_v7", hA, hB, hC_cpu, hC_gpu, M, K, N);
+    run_case<GemmRegV7, 128, 32, 128, 8, 8>(&csv, "gemm_reg_v7", hA, hB, hC_cpu, hC_gpu, M, K, N);
 
     run_case<GemmCublas, 0, 0, 0, 0, 0>(&csv, "gemm_cublas", hA, hB, hC_cpu, hC_gpu, M, K, N);
 
